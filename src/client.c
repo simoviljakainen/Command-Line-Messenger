@@ -9,6 +9,8 @@
 #include <pthread.h>
 
 #include <inc/socket_utilities.h>
+#include <inc/window_manager.h>
+#include <inc/message.h>
 
 void *write_to_server(void *server_socket);
 void *read_from_server(void *s);
@@ -59,18 +61,22 @@ void start_client(char *host, char *port){
     
     send(inet_socket, "sup", sizeof("sup"), 0);
 
+    /* init the message queue(s) */
+    init_g(&read_head, &read_tail);
+
     /* Make new thread for writing */
-    pthread_t stdin_to_serv, stdout_from_serv;
+    pthread_t stdin_to_serv, stdout_from_serv, user_interface;
 
     /* Allocating heap mem for socket num as it's sent to a thread */
     int *p_sock = (int *)malloc(sizeof(inet_socket));
     *p_sock = inet_socket;
-    pthread_create(&stdin_to_serv, NULL, write_to_socket, p_sock);
     pthread_create(&stdout_from_serv, NULL, read_from_socket, p_sock);
-    
+    //pthread_create(&stdin_to_serv, NULL, write_to_socket, p_sock);
+    pthread_create(&user_interface, NULL, run_ncurses_window, NULL);
 
-    pthread_join(stdin_to_serv, NULL);
+    //pthread_join(stdin_to_serv, NULL);
     pthread_join(stdout_from_serv, NULL);
+    pthread_join(user_interface, NULL);
 
     free(p_sock);
 

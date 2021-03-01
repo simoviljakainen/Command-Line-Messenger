@@ -1,4 +1,8 @@
-#include <inc/message.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include "message.h"
+#include <pthread.h>
 
 #define MUTEX(line, mlock) pthread_mutex_lock(&mlock); line pthread_mutex_unlock(&mlock);
 
@@ -40,7 +44,7 @@ void add_message_to_queue(char *msg, Msg **head, Msg **tail){
         exit(EXIT_FAILURE);
     }
 
-    strncpy(new->msg, msg, MAX_MSG_LEN);
+    strncpy(new->msg, msg, MAX_MSG_LENGHT);
 
     new->next = NULL;
 
