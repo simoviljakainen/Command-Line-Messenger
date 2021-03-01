@@ -1,4 +1,5 @@
 #include <inc/socket_utilities.h>
+#include <inc/message.h>
 
 uint16_t str_to_uint16_t(char *string){
     long int n;
@@ -58,6 +59,27 @@ void read_message_to_buffer(int client_socket, char *data_buffer){
     }
 }
 
+void read_message_into_queue(int socket, char *data_buffer){
+    ssize_t received_bytes;
+
+    /* TODO parse message data*/
+    while((received_bytes = recv(socket, data_buffer,
+                sizeof(char)*255, 0)) > 0){ 
+        add_message_to_queue(data_buffer, &read_head, &read_tail);
+        break;
+    }
+
+    /* Handle other errors than connection reset */
+    if(received_bytes == -1 && errno != ECONNRESET){
+        HANDLE_ERROR("There was problem with recv", 1);
+    }
+
+    //Msg new_message;
+    //strncpy(new_message.msg, data_buffer, MAX_MSG_LEN);
+
+    return;
+}
+
 void handle_error(char *msg, int show_err, char *file, int line){
 	fprintf(
 		stderr,
@@ -76,7 +98,7 @@ void *write_to_socket(void *s){
     int socket = *((int *)s);
 
     /* Establish write connection */
-
+    printf("Write to socket\n");
     /* Listen for messages from the server */
     fd_set connected_socks, ready_socks;
 
@@ -90,6 +112,7 @@ void *write_to_socket(void *s){
         ready_socks = connected_socks;
 
         fgets(buffer_boi, 256, stdin);
+        buffer_boi[strlen(buffer_boi)-1] = '\0';
 
         /* TODO Time out should be set */
         if(select(socket+1, NULL, &ready_socks, NULL, NULL) < 0){
@@ -115,7 +138,7 @@ void *read_from_socket(void *s){
 
     /* Add server_socket into set */
     FD_SET(socket, &connected_socks);
-
+    printf("Read from socket\n");
     while(1){
         ready_socks = connected_socks;
 
@@ -127,8 +150,7 @@ void *read_from_socket(void *s){
         /* Cycle through the part of the FD_SET - Finding modified socks */
         /* Client is attempting to connect */
         if(FD_ISSET(socket, &ready_socks)){
-            //printf("test");
-            read_message_to_buffer(socket, data_buffer);
+            read_message_into_queue(socket, data_buffer);
         }
     }
 

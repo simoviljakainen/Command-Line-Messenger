@@ -18,6 +18,7 @@ void message_listener(int client_socket);
 void handle_connections(int server_socket);
 int ping_client(int client_socket);
 void handle_sigpipe(int _);
+void *broadcast_message(void *);
 int accept_connection(
     int server_socket, int *client_sockets, int client_index,
     struct sockaddr_in *connections);
@@ -151,12 +152,22 @@ void handle_connections(int server_socket){
 
     /* Start thread for every connection */
 
-    //pthread thread;
-    //pthread_create(&thread, NULL, somefunc, args);
-    //pthread_join(thread, NULL);
-    message_listener(client_sockets[client_index]);
+    /* Make new thread for writing */
+    pthread_t stdin_to_client, stdout_from_client;
+
+    /* Allocating heap mem for socket num as it's sent to a thread */
+    int *p_sock = (int *)malloc(sizeof(client_sockets[client_index]));
+    *p_sock = client_sockets[client_index];
+    //pthread_create(&stdout_from_client, NULL, read_from_socket, p_sock);
+    pthread_create(&stdin_to_client, NULL, write_to_socket, p_sock);
+    //message_listener(client_sockets[client_index]);
 
     client_index++;
+
+    pthread_join(stdin_to_client, NULL);
+    //pthread_join(stdout_from_client, NULL);
+
+    free(p_sock);
 
     /* Close the thread */
 
@@ -188,8 +199,8 @@ void handle_sigpipe(int _){
     exit(EXIT_SUCCESS);
 }
 
-void broadcast_message(int client_socket){
-
+void *broadcast_message(void *s){
+    int client_socket = *((int *)s);
     fd_set connected_socks, ready_socks;
 
     /* Establish write connection ?*/
@@ -217,7 +228,8 @@ void broadcast_message(int client_socket){
 
         /* There is something to read from client */
         if(FD_ISSET(client_socket, &ready_socks)){
-            send(client_socket, "Yellows", sizeof("Yellows"), 0);   
+            send(client_socket, "Yellows", sizeof("Yellows"), 0);
+            sleep(2);   
         }
 
     }
@@ -255,7 +267,8 @@ void message_listener(int client_socket){
         if(FD_ISSET(client_socket, &ready_socks)){
             read_message_to_buffer(client_socket, data_buffer);
             sleep(2);
-            broadcast_message(client_socket);
+            //broadcast_message(client_socket);
+            send(client_socket, "Yellows", sizeof("Yellows"), 0); 
         }
 
     }
