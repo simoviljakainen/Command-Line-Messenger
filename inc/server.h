@@ -1,2 +1,2 @@
 
-void start_server(char *host, char *port);
+void start_server(char *host, char *port, int max_connections);

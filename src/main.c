@@ -50,7 +50,7 @@ int main(int argc, char *argv[]){
 	}
 
     if(host_mode){
-        start_server(ipv4, port);
+        start_server(ipv4, port, 2); //TODO max_connections
 
     }else if(client_mode){
         start_client(ipv4, port);
