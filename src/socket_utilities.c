@@ -65,7 +65,7 @@ void read_message_into_queue(int socket, char *data_buffer){
     /* TODO parse message data*/
     while((received_bytes = recv(socket, data_buffer,
                 sizeof(char)*255, 0)) > 0){ 
-        add_message_to_queue(data_buffer, &read_head, &read_tail);
+        add_message_to_queue(data_buffer, &read_head, &read_tail, &r_lock);
         break;
     }
 
@@ -117,7 +117,7 @@ void *write_to_socket(void *s){
         }
 
         if(FD_ISSET(socket, &ready_socks)){
-            if((outgoing_msg = pop_msg_from_queue(&write_head)) != NULL){
+            if((outgoing_msg = pop_msg_from_queue(&write_head, &w_lock)) != NULL){
                 send(socket, outgoing_msg->msg, 255, 0);
                 free(outgoing_msg);
             }

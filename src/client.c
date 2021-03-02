@@ -62,8 +62,8 @@ void start_client(char *host, char *port){
     send(inet_socket, "sup", sizeof("sup"), 0);
 
     /* init the message queue(s) */
-    init_g(&read_head, &read_tail);
-    init_g(&write_head, &write_tail);
+    init_list(&read_head, &read_tail);
+    init_list(&write_head, &write_tail);
 
     /* Make new thread for writing */
     pthread_t stdin_to_serv, stdout_from_serv, user_interface;
