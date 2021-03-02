@@ -6,7 +6,6 @@ uint16_t str_to_uint16_t(char *string){
     long int n;
     char *eptr;
 
-    /* VSCode doesn't find errno, but it's there dw */
     errno = 0;
 
     n = strtol(string, &eptr, 10);
@@ -41,32 +40,12 @@ in_addr_t str_to_bin_IP(char *string){
     return address;
 }
 
-/* TODO Change to dynamic string (data_buffer) */
-void read_message_to_buffer(int client_socket, char *data_buffer){
-    ssize_t received_bytes;
-
-    while((received_bytes = recv(client_socket, data_buffer,
-                sizeof(char)*255, 0)) > 0){
-        printf(
-            "This was in the mail: %s\nBytes: %lu\n",
-            data_buffer,
-            received_bytes
-        );     
-    }
-
-    /* Handle other errors than connection reset */
-    if(received_bytes == -1 && errno != ECONNRESET){
-        HANDLE_ERROR("There was problem with recv", 1);
-    }
-}
-
 void read_message_into_queue(int socket, char *data_buffer){
     ssize_t received_bytes;
 
     /* TODO parse message data*/
-    while((received_bytes = recv(socket, data_buffer,/* for close */
-
-                sizeof(char)*255, 0)) > 0){ 
+    while((received_bytes = recv(socket, data_buffer,
+                sizeof(char)*255, 0)) > 0){
         add_message_to_queue(data_buffer, &read_head, &read_tail, &r_lock);
         break;
     }
@@ -76,18 +55,16 @@ void read_message_into_queue(int socket, char *data_buffer){
         HANDLE_ERROR("There was problem with recv", 1);
     }
 
-    //Msg new_message;
-    //strncpy(new_message.msg, data_buffer, MAX_MSG_LEN);
-
     return;
 }
 
-void *write_to_socket(void *s){
-    int socket = *((int *)s);
+void *write_to_socket(void *p_socket){
+    int socket = *((int *)p_socket);
+    
+    free(p_socket);
 
     printf("Write to socket\n");
 
-    /* Listen for messages from the server */
     fd_set connected_socks, ready_socks;
 
     /* Initialize structs */
@@ -98,7 +75,7 @@ void *write_to_socket(void *s){
 
     Msg *outgoing_msg;
 
-    while(1){
+    while(true){
         ready_socks = connected_socks;
 
         /* TODO Time out should be set */
@@ -117,10 +94,14 @@ void *write_to_socket(void *s){
     return NULL;
 }
 
-void *read_from_socket(void *s){
+void *read_from_socket(void *p_socket){
+    int socket = *((int *)p_socket);
     char data_buffer[256];
-    int socket = *((int *)s);
-    /* Listen for messages from the server */
+
+    free(p_socket);
+
+    printf("Read from socket\n");
+
     fd_set connected_socks, ready_socks;
 
     /* Initialize structs */
@@ -128,17 +109,15 @@ void *read_from_socket(void *s){
 
     /* Add server_socket into set */
     FD_SET(socket, &connected_socks);
-    printf("Read from socket\n");
-    while(1){
+
+    while(true){
         ready_socks = connected_socks;
 
         /* TODO Time out should be set */
         if(select(socket+1, &ready_socks, NULL, NULL, NULL) < 0){
             HANDLE_ERROR("There was problem with read select", 1);
         }
-        /* Select removes socks that are not ready from the set */
-        /* Cycle through the part of the FD_SET - Finding modified socks */
-        /* Client is attempting to connect */
+
         if(FD_ISSET(socket, &ready_socks)){
             read_message_into_queue(socket, data_buffer);
         }
