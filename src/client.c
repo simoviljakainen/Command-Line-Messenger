@@ -1,22 +1,11 @@
-
-/* for close */
-#include <unistd.h>
-
-/* For creating sockets */
-#include <sys/types.h>
-#include <sys/socket.h>
-
-#include <pthread.h>
-
 #include <inc/socket_utilities.h>
 #include <inc/window_manager.h>
 #include <inc/message.h>
-
-void *write_to_server(void *server_socket);
-void *read_from_server(void *s);
+#include <inc/general.h>
 
 void start_client(char *host, char *port){
-    char data_buffer[256];
+
+/*******************   SETTING UP THE CONNECTTION   *******************/
 
     /* Set IP and port */
     in_addr_t addr = str_to_bin_IP(host);
@@ -53,35 +42,40 @@ void start_client(char *host, char *port){
         exit(EXIT_FAILURE);
     }
 
-    /* Receive data from server - returs the lenght of the message if successful */
-    /* Same as read bc no flags - Will wait for the message if the socket is not blocking*/
-    ssize_t received_bytes = recv(inet_socket, data_buffer, sizeof(char)*255, 0);
+/**********************   CONNECTED TO SERVER   ***********************/
 
-    printf("This was in the mail: %s\nBytes: %lu\n", data_buffer, received_bytes);
-    
-    send(inet_socket, "sup", sizeof("sup"), 0);
-
-    /* init the message queue(s) */
+    /* Init the message queues */
     init_list(&read_head, &read_tail);
     init_list(&write_head, &write_tail);
 
-    /* Make new thread for writing */
-    pthread_t stdin_to_serv, stdout_from_serv, user_interface;
+    pthread_t message_sender, message_listener, user_interface;
 
-    /* Allocating heap mem for socket num as it's sent to a thread */
-    int *p_sock = (int *)malloc(sizeof(inet_socket));
-    *p_sock = inet_socket;
-    pthread_create(&stdout_from_serv, NULL, read_from_socket, p_sock);
-    pthread_create(&stdin_to_serv, NULL, write_to_socket, p_sock);
+    /* Allocating heap mem for socket num as it's sent to threads thread */
+    int *sock_fd;
+
+    if((sock_fd = (int *)malloc(sizeof(inet_socket))) == NULL){
+        HANDLE_ERROR("Failed to allocate memory for socket fd", 1);
+    }
+    *sock_fd = inet_socket;
+
+    /* One thread handles all the incoming messages, one outgoing and one is for the UI */
+    pthread_create(&message_listener, NULL, read_from_socket, sock_fd);
+    pthread_create(&message_sender, NULL, write_to_socket, sock_fd);
     pthread_create(&user_interface, NULL, run_ncurses_window, NULL);
 
-    pthread_join(stdin_to_serv, NULL);
-    pthread_join(stdout_from_serv, NULL);
+    pthread_join(message_sender, NULL);
+    pthread_join(message_listener, NULL);
     pthread_join(user_interface, NULL);
 
-    free(p_sock);
+/***********************   CONNECTION CLOSED   ************************/
 
-    /* Close the socket */
+    free(sock_fd);
+
+    /* Free queues */
+    empty_list(&read_head);
+    empty_list(&write_head);
+
     close(inet_socket);
 
+    return;
 }

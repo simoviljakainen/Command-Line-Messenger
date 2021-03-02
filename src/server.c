@@ -1,23 +1,9 @@
-
-/* For close */
-#include <unistd.h>
-
-/* For creating sockets */
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/select.h>
-
-#include <pthread.h>
-#include <signal.h>
-
 #include <inc/socket_utilities.h>
 #include <inc/message.h>
-
-/* TODO change error numbers */
+#include <inc/general.h>
 
 void *message_listener(void *socket);
 void handle_connections(int server_socket);
-int ping_client(int client_socket);
 void handle_sigpipe(int _);
 void *broadcast_message(void *);
 int accept_connection(
@@ -113,7 +99,6 @@ int accept_connection(
 /* One thread handles connections (main) - 
 The thread will spawn another thread for every client*/
 void handle_connections(int server_socket){
-    char server_msg[] = "Your mother.";
     int client_index = 0;
 
     /* 1024 = Max connections that select can handle */
@@ -149,9 +134,6 @@ void handle_connections(int server_socket){
             break; //for testing
         }
     }
-    
-    /* Send server data */ 
-    send(client_sockets[client_index], server_msg, sizeof(server_msg), 0);
 
     /* Start thread for every connection */
 
@@ -161,6 +143,7 @@ void handle_connections(int server_socket){
     /* Allocating heap mem for socket num as it's sent to a thread */
     int *p_sock = (int *)malloc(sizeof(client_sockets[client_index]));
     *p_sock = client_sockets[client_index];
+
     pthread_create(&stdout_from_client, NULL, read_from_socket, p_sock);
     pthread_create(&stdin_to_client, NULL, broadcast_message, p_sock);
    
@@ -171,19 +154,7 @@ void handle_connections(int server_socket){
 
     free(p_sock);
 
-    /* Close the thread */
-
-}
-
-/* TODO  this adds overhead. some kind of timeout is needed */
-int ping_client(int client_socket){
-    ssize_t sent_bytes;
-    sent_bytes = send(client_socket, "ping", sizeof("ping"), 0);
-
-    printf("bytes : %ld\n", sent_bytes);
-    if(sent_bytes == -1)
-        printf("errno: %d", errno);
-    return 1;
+    return;
 }
 
 void handle_sigpipe(int _){
@@ -235,44 +206,6 @@ void *broadcast_message(void *s){
                 send(client_socket, outgoing_msg->msg, 255, 0);
                 free(outgoing_msg);
             }
-        }
-
-    }
-}
-
-void *message_listener(void *socket){
-    int client_socket = *((int *)socket);
-    char data_buffer[256];
-    fd_set connected_socks, ready_socks;
-
-    /* Establish write connection ?*/
-
-    /* Initialize structs */
-    FD_ZERO(&connected_socks);
-    /* add the client_socket into set */
-    FD_SET(client_socket, &connected_socks);
-
-    /* The thread will check socket for message until client disconnects */
-    printf("Listening for messages\n");
-
-    while(1){
-
-        ready_socks = connected_socks;
-
-        /* check if client has disconnected */
-        //ping_client(client_socket);
-
-        /* TODO Time out should be set */
-        if(select(client_socket+1, &ready_socks, NULL, NULL, NULL) < 0){
-            HANDLE_ERROR("There was problem with read select", 1);
-        }
-        /* Select removes socks that are not ready from the set */
-        /* Cycle through the part of the FD_SET - Finding modifed socks */
-        /* only one sock per thread so no other looping needed */
-
-        /* There is something to read from client */
-        if(FD_ISSET(client_socket, &ready_socks)){
-            //read_message_into_queue(client_socket, data_buffer);
         }
 
     }

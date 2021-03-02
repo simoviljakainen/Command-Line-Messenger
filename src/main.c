@@ -1,25 +1,9 @@
-
-/* TODO put headers in some other header file */
-#include <stdio.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <string.h>
-
 #include <inc/server.h>
 #include <inc/client.h>
-
-#include <errno.h>
-
-#define MAX_PORT_STR 6
-#define MAX_IPV4_STR 16
-#define LOCAL_HOST "0.0.0.0"
-
-/* TODO make a new header for ERROR */
 #include <inc/socket_utilities.h>
+#include <inc/general.h>
 
 int main(int argc, char *argv[]){
-    int opt;
     bool host_mode = false, client_mode = false;
     char port[MAX_PORT_STR], ipv4[MAX_IPV4_STR] = LOCAL_HOST;
 
@@ -29,6 +13,7 @@ int main(int argc, char *argv[]){
 
 	/* get cl arguments */
 	optind = 1;
+    int opt;
 
 	while((opt = getopt(argc, argv, "hcp:s:")) != -1){
 		
