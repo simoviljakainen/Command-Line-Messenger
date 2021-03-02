@@ -144,7 +144,9 @@ void *run_ncurses_window(void *init){
                     /* Put the message into the send queue */
                     *msg_ptr = '\0';
 
-                    add_message_to_queue(msg_buffer, &write_head, &write_tail);
+                    add_message_to_queue(
+                        msg_buffer, &write_head, &write_tail, &w_lock
+                    );
 
                     msg_ptr = msg_buffer;
                     werase(in);
@@ -178,7 +180,7 @@ void *run_ncurses_window(void *init){
             }
         }
 
-        if((msg = pop_msg_from_queue(&read_head)) != NULL){
+        if((msg = pop_msg_from_queue(&read_head, &r_lock)) != NULL){
 
             insert_into_message_history(messages, count, *msg);
                     

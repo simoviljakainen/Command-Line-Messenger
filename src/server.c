@@ -65,7 +65,7 @@ void start_server(char *host, char *port){
     inet_ntop(AF_INET, &server_address.sin_addr.s_addr, ip_v4, INET_ADDRSTRLEN-1);
     printf("Bound %s:%d\n", ip_v4, port_num);
     
-    init_g(&read_head, &read_tail);
+    init_list(&read_head, &read_tail);
 
     /* FIXME increase the number of queued connections when threads are added
     Listen for connections */
@@ -231,7 +231,7 @@ void *broadcast_message(void *s){
 
         /* There is something to read from client */
         if(FD_ISSET(client_socket, &ready_socks)){
-            if((outgoing_msg = pop_msg_from_queue(&read_head)) != NULL){
+            if((outgoing_msg = pop_msg_from_queue(&read_head, &r_lock)) != NULL){
                 send(client_socket, outgoing_msg->msg, 255, 0);
                 free(outgoing_msg);
             }
