@@ -115,6 +115,9 @@ void handle_connections(int server_socket, int max_connections){
     /* Add server_socket into set */
     FD_SET(server_socket, &server_sockets);
 
+    /* TODO limit CPU usage */
+    /* TODO add client details into same structure */
+
     while(client_index < max_connections){
         ready_socks = server_sockets;
 
@@ -122,8 +125,7 @@ void handle_connections(int server_socket, int max_connections){
         if(select(server_socket+1, &ready_socks, NULL, NULL, NULL) < 0){
             HANDLE_ERROR("There was problem with read select connections", 1);
         }
-        /* Select removes socks that are not ready from the set */
-        /* Cycle through the part of the FD_SET - Finding modified socks */
+
         /* Client is attempting to connect */
         if(FD_ISSET(server_socket, &ready_socks)){
             status = accept_connection(
@@ -139,6 +141,10 @@ void handle_connections(int server_socket, int max_connections){
         }
     }
 
+/*******************   ALL CONNECTTIONS ACCEPTED   *******************/
+
+    printf("All connections accepted. Waiting threads to finish\n");
+
     for(int i = 0; i < max_connections; i++){
         pthread_join(client_threads[i], NULL);
     }
@@ -153,7 +159,7 @@ int accept_connection(
     /* Accept connection */
     socklen_t peer_con_size = sizeof(connections[client_index]);
 
-    /* TODO deny connection - return 1*/
+    /* TODO deny connection - return 1 */
 
     client_sockets[client_index] = accept(
         server_socket,
@@ -199,11 +205,11 @@ void handle_sigpipe(int _){
         /* TODO Remove client from list */
 
         /* Exit the thread */
-        exit(EXIT_SUCCESS);
     }
     /* Dunno where the signal came from */
     printf("Should I catch this?\n");
-    exit(EXIT_SUCCESS);
+
+    return;
 }
 
 void *broadcast_message(void *_){
