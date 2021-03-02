@@ -60,10 +60,8 @@ void read_message_into_queue(int socket, char *data_buffer){
 
 void *write_to_socket(void *p_socket){
     int socket = *((int *)p_socket);
-    
-    free(p_socket);
 
-    printf("Write to socket\n");
+    free(p_socket);
 
     fd_set connected_socks, ready_socks;
 
@@ -99,8 +97,6 @@ void *read_from_socket(void *p_socket){
     char data_buffer[256];
 
     free(p_socket);
-
-    printf("Read from socket\n");
 
     fd_set connected_socks, ready_socks;
 
