@@ -5,7 +5,8 @@
 Msg *read_head, *read_tail;
 Msg *write_head, *write_tail;
 
-pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t r_lock = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t w_lock = PTHREAD_MUTEX_INITIALIZER;
 
 /* Not thread safe, should be only used after threads have exited */
 void empty_list(Msg **head){
@@ -21,6 +22,14 @@ void empty_list(Msg **head){
 Msg *pop_msg_from_queue(Msg **head){
     if(*head == NULL)
         return NULL;
+        
+    pthread_mutex_t lock;
+
+    if(*head == write_head){
+        lock = w_lock; 
+    }else{
+        lock = r_lock;
+    }
 
     Msg *oldest = *head;
 
@@ -32,7 +41,7 @@ Msg *pop_msg_from_queue(Msg **head){
 }
 
 void add_message_to_queue(char *msg, Msg **head, Msg **tail){
-
+    pthread_mutex_t lock;
     Msg *new;
 
     if((new = (Msg *)malloc(sizeof(Msg))) == NULL){
@@ -45,6 +54,12 @@ void add_message_to_queue(char *msg, Msg **head, Msg **tail){
     new->next = NULL;
 
     /* Linking the new node and updating tail and head */
+    if(*head == write_head){
+        lock = w_lock; 
+    }else{
+        lock = r_lock;
+    }
+
     MUTEX(
         if(*head == NULL){
             *head = new;
@@ -61,7 +76,4 @@ void add_message_to_queue(char *msg, Msg **head, Msg **tail){
 /* Not thread safe, should be only used before staring the threads */
 void init_g(Msg **head, Msg **tail){
     *head = NULL, *tail = NULL;
-}
-void *init_message_handler(void *_){
-    return NULL;
 }

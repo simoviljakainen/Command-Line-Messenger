@@ -19,6 +19,8 @@ typedef struct msg_{
 /* From socket to stdout (ncurses) */
 extern Msg *read_head;
 extern Msg *read_tail;
+extern Msg *write_head;
+extern Msg *write_tail;
 
 
 void empty_list(Msg **head);
