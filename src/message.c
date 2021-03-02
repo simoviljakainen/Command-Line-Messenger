@@ -1,3 +1,4 @@
+#include <inc/general.h>
 #include <inc/message.h>
 
 #define MUTEX(line, mlock) pthread_mutex_lock(mlock); line pthread_mutex_unlock(mlock);

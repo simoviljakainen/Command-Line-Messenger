@@ -3,15 +3,9 @@
 
 #include <ncurses.h>
 
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
-
 #include <locale.h>
 #include <stdarg.h>
 #include <time.h>
-
-#include <inc/message.h>
 
 #define MAX_MESSAGE_LIST 100
 #define MSGBOX_LINES 1
@@ -20,6 +14,6 @@
 #define WIN_BORDER_SIZE_Y 1
 #define WIN_BORDER_SIZE_X 1
 
-void *run_ncurses_window(void *init);
+void *run_ncurses_window(void *_);
 
 #endif

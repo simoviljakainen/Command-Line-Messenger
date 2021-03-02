@@ -1,5 +1,6 @@
 #include <inc/socket_utilities.h>
 #include <inc/message.h>
+#include <inc/general.h>
 
 uint16_t str_to_uint16_t(char *string){
     long int n;
@@ -63,7 +64,8 @@ void read_message_into_queue(int socket, char *data_buffer){
     ssize_t received_bytes;
 
     /* TODO parse message data*/
-    while((received_bytes = recv(socket, data_buffer,
+    while((received_bytes = recv(socket, data_buffer,/* for close */
+
                 sizeof(char)*255, 0)) > 0){ 
         add_message_to_queue(data_buffer, &read_head, &read_tail, &r_lock);
         break;
@@ -78,18 +80,6 @@ void read_message_into_queue(int socket, char *data_buffer){
     //strncpy(new_message.msg, data_buffer, MAX_MSG_LEN);
 
     return;
-}
-
-void handle_error(char *msg, int show_err, char *file, int line){
-	fprintf(
-		stderr,
-		"ERROR(%d) %s:%d -- %s:%s\n",
-		errno,
-		file, line,
-        (msg != NULL) ? msg : "-",
-		(show_err) ? strerror(errno): "-"
-	);
-	exit(EXIT_FAILURE);
 }
 
 void *write_to_socket(void *s){
