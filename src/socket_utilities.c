@@ -93,12 +93,10 @@ void handle_error(char *msg, int show_err, char *file, int line){
 }
 
 void *write_to_socket(void *s){
-    /* TODO Allocate this string dynamically */
-    char buffer_boi[256];
     int socket = *((int *)s);
 
-    /* Establish write connection */
     printf("Write to socket\n");
+
     /* Listen for messages from the server */
     fd_set connected_socks, ready_socks;
 
@@ -108,11 +106,10 @@ void *write_to_socket(void *s){
     /* Add server_socket into set */
     FD_SET(socket, &connected_socks);
 
+    Msg *outgoing_msg;
+
     while(1){
         ready_socks = connected_socks;
-
-        fgets(buffer_boi, 256, stdin);
-        buffer_boi[strlen(buffer_boi)-1] = '\0';
 
         /* TODO Time out should be set */
         if(select(socket+1, NULL, &ready_socks, NULL, NULL) < 0){
@@ -120,7 +117,10 @@ void *write_to_socket(void *s){
         }
 
         if(FD_ISSET(socket, &ready_socks)){
-            send(socket, buffer_boi, 255, 0);
+            if((outgoing_msg = pop_msg_from_queue(&write_head)) != NULL){
+                send(socket, outgoing_msg->msg, 255, 0);
+                free(outgoing_msg);
+            }
         }
     }
   

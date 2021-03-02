@@ -63,6 +63,7 @@ void start_client(char *host, char *port){
 
     /* init the message queue(s) */
     init_g(&read_head, &read_tail);
+    init_g(&write_head, &write_tail);
 
     /* Make new thread for writing */
     pthread_t stdin_to_serv, stdout_from_serv, user_interface;
@@ -71,10 +72,10 @@ void start_client(char *host, char *port){
     int *p_sock = (int *)malloc(sizeof(inet_socket));
     *p_sock = inet_socket;
     pthread_create(&stdout_from_serv, NULL, read_from_socket, p_sock);
-    //pthread_create(&stdin_to_serv, NULL, write_to_socket, p_sock);
+    pthread_create(&stdin_to_serv, NULL, write_to_socket, p_sock);
     pthread_create(&user_interface, NULL, run_ncurses_window, NULL);
 
-    //pthread_join(stdin_to_serv, NULL);
+    pthread_join(stdin_to_serv, NULL);
     pthread_join(stdout_from_serv, NULL);
     pthread_join(user_interface, NULL);
 

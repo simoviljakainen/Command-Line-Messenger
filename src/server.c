@@ -11,10 +11,11 @@
 #include <signal.h>
 
 #include <inc/socket_utilities.h>
+#include <inc/message.h>
 
 /* TODO change error numbers */
 
-void message_listener(int client_socket);
+void *message_listener(void *socket);
 void handle_connections(int server_socket);
 int ping_client(int client_socket);
 void handle_sigpipe(int _);
@@ -64,6 +65,8 @@ void start_server(char *host, char *port){
     inet_ntop(AF_INET, &server_address.sin_addr.s_addr, ip_v4, INET_ADDRSTRLEN-1);
     printf("Bound %s:%d\n", ip_v4, port_num);
     
+    init_g(&read_head, &read_tail);
+
     /* FIXME increase the number of queued connections when threads are added
     Listen for connections */
     if(listen(inet_socket, 1) != 0){
@@ -158,14 +161,13 @@ void handle_connections(int server_socket){
     /* Allocating heap mem for socket num as it's sent to a thread */
     int *p_sock = (int *)malloc(sizeof(client_sockets[client_index]));
     *p_sock = client_sockets[client_index];
-    //pthread_create(&stdout_from_client, NULL, read_from_socket, p_sock);
-    pthread_create(&stdin_to_client, NULL, write_to_socket, p_sock);
-    //message_listener(client_sockets[client_index]);
-
+    pthread_create(&stdout_from_client, NULL, read_from_socket, p_sock);
+    pthread_create(&stdin_to_client, NULL, broadcast_message, p_sock);
+   
     client_index++;
 
     pthread_join(stdin_to_client, NULL);
-    //pthread_join(stdout_from_client, NULL);
+    pthread_join(stdout_from_client, NULL);
 
     free(p_sock);
 
@@ -210,6 +212,7 @@ void *broadcast_message(void *s){
     /* add the client_socket into set */
     FD_SET(client_socket, &connected_socks);
 
+    Msg *outgoing_msg;
     /* The thread will check socket for message until client disconnects */
     while(1){
 
@@ -228,16 +231,18 @@ void *broadcast_message(void *s){
 
         /* There is something to read from client */
         if(FD_ISSET(client_socket, &ready_socks)){
-            send(client_socket, "Yellows", sizeof("Yellows"), 0);
-            sleep(2);   
+            if((outgoing_msg = pop_msg_from_queue(&read_head)) != NULL){
+                send(client_socket, outgoing_msg->msg, 255, 0);
+                free(outgoing_msg);
+            }
         }
 
     }
 }
 
-void message_listener(int client_socket){
+void *message_listener(void *socket){
+    int client_socket = *((int *)socket);
     char data_buffer[256];
-    char data_2[1024];
     fd_set connected_socks, ready_socks;
 
     /* Establish write connection ?*/
@@ -248,6 +253,8 @@ void message_listener(int client_socket){
     FD_SET(client_socket, &connected_socks);
 
     /* The thread will check socket for message until client disconnects */
+    printf("Listening for messages\n");
+
     while(1){
 
         ready_socks = connected_socks;
@@ -265,10 +272,7 @@ void message_listener(int client_socket){
 
         /* There is something to read from client */
         if(FD_ISSET(client_socket, &ready_socks)){
-            read_message_to_buffer(client_socket, data_buffer);
-            sleep(2);
-            //broadcast_message(client_socket);
-            send(client_socket, "Yellows", sizeof("Yellows"), 0); 
+            //read_message_into_queue(client_socket, data_buffer);
         }
 
     }

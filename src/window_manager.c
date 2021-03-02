@@ -122,7 +122,7 @@ void display_message_history(Msg *messages, Msg *ptr, int count, WINDOW *win){
 
 void *run_ncurses_window(void *init){
     WINDOW *main = NULL, *in, *border_in, *border_main;
-    Msg messages[MAX_MESSAGE_LIST], *msg_list_ptr = messages, *msg, user_msg;
+    Msg messages[MAX_MESSAGE_LIST], *msg_list_ptr = messages, *msg;
 
     setlocale(LC_ALL, ""); // for utf-8
     initscr(); curs_set(0); // curs_set => hide cursor
@@ -134,8 +134,7 @@ void *run_ncurses_window(void *init){
     char msg_buffer[MAX_MSG_LEN], *msg_ptr = msg_buffer;
 
     /* Limit fps */
-    Tmsc sleep_time;
-    sleep_time.tv_nsec = msec * 1000000; 
+    Tmsc sleep_time = {.tv_nsec = msec * 1000000};
 
     do{
         /* Only if input is ready */
@@ -144,14 +143,8 @@ void *run_ncurses_window(void *init){
                 case '\n': case KEY_ENTER:
                     /* Put the message into the send queue */
                     *msg_ptr = '\0';
-                    strcpy(user_msg.msg, msg_buffer);
-                    
-                    insert_into_message_history(messages, count, user_msg);
-                    
-                    (count < MAX_MESSAGE_LIST) ? count++ : 0;
 
-                    if(count > max_text_win && msg_list_ptr < &messages[count - max_text_win])
-                        msg_list_ptr++;
+                    add_message_to_queue(msg_buffer, &write_head, &write_tail);
 
                     msg_ptr = msg_buffer;
                     werase(in);
