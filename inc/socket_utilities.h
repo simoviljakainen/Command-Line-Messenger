@@ -15,9 +15,13 @@
     #include <arpa/inet.h> //For inet_ntop
     #include <netinet/in.h> //Structures for address information
 
+    #include <inc/message.h>
+
     uint16_t str_to_uint16_t(char *string);
     in_addr_t str_to_bin_IP(char *string);
     void read_message_to_buffer(int client_socket, char *data_buffer);
+    char *message_to_ascii_packet(Msg *message, int *size);
+    Msg ascii_packet_to_message(char *data_buffer);
 
     void *write_to_socket(void *socket);
     void *read_from_socket(void *socket);

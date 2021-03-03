@@ -43,7 +43,7 @@ void start_client(char *host, char *port){
     /* Init the message queues */
     init_list(&read_head, &read_tail);
     init_list(&write_head, &write_tail);
-
+    
     pthread_t message_sender, message_listener, user_interface;
 
     /* Allocating heap mem for socket fd as it's sent to threads */

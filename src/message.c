@@ -37,7 +37,7 @@ Msg *pop_msg_from_queue(Msg **head, pthread_mutex_t *lock){
 }
 
 void add_message_to_queue(
-    char *msg, Msg **head, Msg **tail, pthread_mutex_t *lock){
+    Msg msg, Msg **head, Msg **tail, pthread_mutex_t *lock){
 
     Msg *new;
 
@@ -46,7 +46,9 @@ void add_message_to_queue(
         exit(EXIT_FAILURE);
     }
 
-    strncpy(new->msg, msg, MAX_MSG_LEN);
+    strncpy(new->msg, msg.msg, MAX_MSG_LEN);
+    strncpy(new->username, msg.username, MAX_USERNAME_LEN);
+    strncpy(new->id, msg.id, ID_SIZE);
 
     new->next = NULL;
 

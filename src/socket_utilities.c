@@ -40,14 +40,59 @@ in_addr_t str_to_bin_IP(char *string){
     return address;
 }
 
+char *message_to_ascii_packet(Msg *message, int *size){
+    char *packet;
+
+    int packet_size = MAX_USERNAME_LEN + ID_SIZE + strlen(message->msg) + 1;
+
+    if((packet = malloc(packet_size)) == NULL){
+        HANDLE_ERROR("Failed to allocate memory for a packet", 1);
+    }
+
+    int offset = 0; 
+    /* Insert username */
+    memcpy(packet, message->username, MAX_USERNAME_LEN); // saves the null byte
+    offset += MAX_USERNAME_LEN;
+
+    memcpy(packet + offset, message->id, ID_SIZE); // saves the null byte
+    offset += ID_SIZE;
+
+    memcpy(packet + offset, message->msg, strlen(message->msg) + 1); // saves the null byte
+
+    *size = packet_size;
+
+    return packet;
+}
+
+Msg ascii_packet_to_message(char *data_buffer){
+    Msg message;
+
+    int offset = 0;
+
+    strncpy(message.username, data_buffer, MAX_USERNAME_LEN);
+    offset += MAX_USERNAME_LEN;
+
+    strncpy(message.id, data_buffer + offset, ID_SIZE);
+    offset += ID_SIZE;
+
+    strncpy(message.msg, data_buffer + offset, MAX_MSG_LEN);
+
+    return message;
+}
+
 void read_message_into_queue(int socket, char *data_buffer){
     ssize_t received_bytes;
 
-    /* TODO parse message data*/
-    while((received_bytes = recv(socket, data_buffer,
-                sizeof(char)*255, 0)) > 0){
-        add_message_to_queue(data_buffer, &read_head, &read_tail, &r_lock);
-        break;
+    int max_size = MAX_MSG_LEN + MAX_USERNAME_LEN + ID_SIZE;
+    
+    /* change byte order from big endian into host byte order */
+    received_bytes = recv(socket, data_buffer, max_size, 0);
+
+    if (received_bytes > 0){
+        add_message_to_queue(
+            ascii_packet_to_message(data_buffer),
+            &read_head, &read_tail, &r_lock
+        );
     }
 
     /* Handle other errors than connection reset */
@@ -72,6 +117,8 @@ void *write_to_socket(void *p_socket){
     FD_SET(socket, &connected_socks);
 
     Msg *outgoing_msg;
+    char *ascii_packet;
+    int packet_size;
 
     while(true){
         ready_socks = connected_socks;
@@ -83,8 +130,12 @@ void *write_to_socket(void *p_socket){
 
         if(FD_ISSET(socket, &ready_socks)){
             if((outgoing_msg = pop_msg_from_queue(&write_head, &w_lock)) != NULL){
-                send(socket, outgoing_msg->msg, 255, 0);
+
+                ascii_packet = message_to_ascii_packet(outgoing_msg, &packet_size);
+                send(socket, ascii_packet, packet_size, 0);
+
                 free(outgoing_msg);
+                free(ascii_packet);
             }
         }
     }

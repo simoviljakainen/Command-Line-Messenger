@@ -14,7 +14,7 @@ typedef struct timespec Tmsc;
 
 void *run_ncurses_window(void *_){
     WINDOW *main = NULL, *in, *border_in, *border_main;
-    Msg messages[MAX_MESSAGE_LIST], *msg_list_ptr = messages, *msg;
+    Msg messages[MAX_MESSAGE_LIST], *msg_list_ptr = messages, *msg, new;
 
     setlocale(LC_ALL, ""); //for utf-8
     
@@ -43,8 +43,12 @@ void *run_ncurses_window(void *_){
                     /* Put the message into the send queue */
                     *msg_ptr = '\0';
 
+                    strncpy(new.msg, msg_buffer, MAX_MSG_LEN);
+                    strncpy(new.username, "kimmo", MAX_USERNAME_LEN);
+                    strncpy(new.id, "999", ID_SIZE);
+
                     add_message_to_queue(
-                        msg_buffer, &write_head, &write_tail, &w_lock
+                        new, &write_head, &write_tail, &w_lock
                     );
 
                     msg_ptr = msg_buffer;
@@ -218,7 +222,7 @@ void display_message_history(Msg *messages, Msg *ptr, int count, WINDOW *win){
             continue;
 
         wclrtoeol(win);
-        mvwprintw(win, i, 1, "%s", ptr[i].msg);
+        mvwprintw(win, i, 1, "%s(%s): %s", ptr[i].username, ptr[i].id, ptr[i].msg);
     }
 
     return;
