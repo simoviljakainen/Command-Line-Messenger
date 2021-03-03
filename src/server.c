@@ -72,7 +72,7 @@ void start_server(char *host, char *port, int max_connections){
         exit(EXIT_FAILURE);
     }
 
-/*******************   LISTENING FOR CONNECTTIONS   *******************/
+/*******************   LISTENING FOR CONNECTIONS   ********************/
 
     init_list(&read_head, &read_tail);
     FD_ZERO(&connected_sockets);
@@ -188,7 +188,7 @@ int accept_connection(
     if((sock_fd = (int *)malloc(sizeof(client_sockets[client_index]))) == NULL){
         HANDLE_ERROR("Failed to allocate memory for socket fd", 1);
     }
-    
+
     *sock_fd = client_sockets[client_index];
 
     /* Start message listening thread for the new client */
@@ -215,11 +215,15 @@ void handle_sigpipe(int _){
 void *broadcast_message(void *_){
     fd_set ready_sockets;
     Msg *outgoing_msg;
+    int size;
+    char *ascii_packet;
 
     while(true){
 
         if((outgoing_msg = pop_msg_from_queue(&read_head, &r_lock)) != NULL){
             
+            ascii_packet = message_to_ascii_packet(outgoing_msg, &size);
+
             ready_sockets = connected_sockets;
             
             if(select(max_socket_fd+1, NULL, &ready_sockets, NULL, NULL) < 0){
@@ -229,11 +233,14 @@ void *broadcast_message(void *_){
             /* Cycle through the part of the FD_SET - Finding ready socks */
             for(int i = 0; i < max_socket_fd+1; i++){
                 if(FD_ISSET(i, &ready_sockets)){
-                    send(i, outgoing_msg->msg, 255, 0);
+
+                    /* TODO Insert right id into the msg */
+                    send(i, ascii_packet, size, 0);
                 }
             }          
             
             free(outgoing_msg);
+            free(ascii_packet);
         }
     }
 }
