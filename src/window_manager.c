@@ -9,12 +9,17 @@ WINDOW *create_window(int height, int width, int loc_x, int loc_y, int border);
 void init_windows(WINDOW **main, WINDOW **in, WINDOW **border_main, WINDOW **border_in);
 
 int max_y, max_x, max_text_win; //max-window size and maximum lines shown
+char username[MAX_USERNAME_LEN];
 
 typedef struct timespec Tmsc; 
 
 void *run_ncurses_window(void *_){
     WINDOW *main = NULL, *in, *border_in, *border_main;
     Msg messages[MAX_MESSAGE_LIST], *msg_list_ptr = messages, *msg, new;
+
+    /* Set username and placeholder id */
+    strncpy(new.username, username, MAX_USERNAME_LEN);
+    strncpy(new.id, "9999", ID_SIZE);
 
     setlocale(LC_ALL, ""); //for utf-8
     
@@ -44,8 +49,6 @@ void *run_ncurses_window(void *_){
                     *msg_ptr = '\0';
 
                     strncpy(new.msg, msg_buffer, MAX_MSG_LEN);
-                    strncpy(new.username, "kimmo", MAX_USERNAME_LEN);
-                    strncpy(new.id, "999", ID_SIZE);
 
                     add_message_to_queue(
                         new, &write_head, &write_tail, &w_lock
@@ -75,7 +78,7 @@ void *run_ncurses_window(void *_){
                     break;
 
                 default:
-                    if(msg_ptr < &msg_buffer[MAX_MSG_LEN-2]){
+                    if(msg_ptr < &msg_buffer[MAX_MSG_LEN-1]){
                         *msg_ptr = c;
                         msg_ptr++;
                     }
@@ -215,6 +218,7 @@ void insert_into_message_history(Msg *messages, int count, Msg msg){
     return;
 }
 
+/* FIXME multiline messages do not work. next message will go over */
 void display_message_history(Msg *messages, Msg *ptr, int count, WINDOW *win){
 
     for(int i = 0; i < count && i < max_text_win; i++){

@@ -5,6 +5,7 @@
 
     #define MAX_MSG_LEN 256
     #define MAX_USERNAME_LEN 10
+    #define DEFAULT_USERNAME "Heikki"
     #define ID_SIZE 5
 
     typedef struct msg_{

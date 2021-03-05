@@ -5,7 +5,6 @@
 
 #include <locale.h>
 #include <stdarg.h>
-#include <time.h>
 
 #define MAX_MESSAGE_LIST 100
 #define MSGBOX_LINES 1
@@ -15,5 +14,7 @@
 #define WIN_BORDER_SIZE_X 1
 
 void *run_ncurses_window(void *_);
+
+extern char username[MAX_USERNAME_LEN];
 
 #endif

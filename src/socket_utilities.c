@@ -2,6 +2,8 @@
 #include <inc/message.h>
 #include <inc/general.h>
 
+bool is_server;
+
 uint16_t str_to_uint16_t(char *string){
     long int n;
     char *eptr;
@@ -82,17 +84,17 @@ Msg ascii_packet_to_message(char *data_buffer){
 
 void read_message_into_queue(int socket, char *data_buffer){
     ssize_t received_bytes;
+    Msg msg;
 
     int max_size = MAX_MSG_LEN + MAX_USERNAME_LEN + ID_SIZE;
     
-    /* change byte order from big endian into host byte order */
     received_bytes = recv(socket, data_buffer, max_size, 0);
 
     if (received_bytes > 0){
-        add_message_to_queue(
-            ascii_packet_to_message(data_buffer),
-            &read_head, &read_tail, &r_lock
-        );
+        msg = ascii_packet_to_message(data_buffer);
+        (is_server) ? snprintf(msg.id, ID_SIZE, "%d", socket) : 0;
+
+        add_message_to_queue(msg, &read_head, &read_tail, &r_lock);
     }
 
     /* Handle other errors than connection reset */
