@@ -6,16 +6,19 @@
 int main(int argc, char *argv[]){
     bool host_mode = false, client_mode = false;
     char port[MAX_PORT_STR], ipv4[MAX_IPV4_STR] = LOCAL_HOST;
+	char name[MAX_USERNAME_LEN] = DEFAULT_USERNAME, *pwd;
 
 	if(argc < 2){
-		HANDLE_ERROR("Usage: ./clm -[hc] -p -[s]", 0);
+		HANDLE_ERROR("Usage: ./clm -[hc] -p portnum -[suw] arg", 0);
 	}
 
 	/* get cl arguments */
 	optind = 1;
     int opt;
 
-	while((opt = getopt(argc, argv, "hcp:s:")) != -1){
+	srand(time(NULL));
+
+	while((opt = getopt(argc, argv, "hcp:s:u:w:")) != -1){
 		
 		switch(opt){
 
@@ -40,9 +43,17 @@ int main(int argc, char *argv[]){
             /* Source IP - connection or binding for host */
 			case 's':
 				printf("IP is %s\n", (optarg != NULL ? optarg : LOCAL_HOST));
-                (optarg != NULL) ? strncpy(ipv4, optarg, MAX_IPV4_STR-1) : "";
+                (optarg != NULL) ? strncpy(ipv4, optarg, MAX_IPV4_STR) : "";
 				break;
 
+			case 'u':
+				(optarg != NULL) ? strncpy(name, optarg, MAX_USERNAME_LEN) : "";
+				break;
+
+			case 'w':
+				(optarg != NULL) ? pwd = strdup(optarg) : 0;
+				break;
+				
 			case '?':
 				printf("Unknown argument: %s.\n", optarg);
 				exit(EXIT_FAILURE);
@@ -50,10 +61,10 @@ int main(int argc, char *argv[]){
 	}
 
     if(host_mode){
-        start_server(ipv4, port, 2); //TODO max_connections
+        start_server(ipv4, port, 2, pwd); //TODO max_connections
 
     }else if(client_mode){
-        start_client(ipv4, port);
+        start_client(ipv4, port, name, pwd);
 
     }else{
 		HANDLE_ERROR("No mode given [h = host, c = client]", 0);

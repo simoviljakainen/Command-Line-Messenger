@@ -1,5 +1,6 @@
 CC = gcc
 CFLAGS = -Wall -pedantic -I. -g -lpthread -lncursesw
+LIBS = ./lib/libargon2.a
 TARGET = clm
 OFOLD = obj
 SRC = src
@@ -12,7 +13,7 @@ all: default
 default: $(TARGET)
 
 $(TARGET): $(OBJ)
-	$(CC) -o $@ $^ $(CFLAGS)
+	$(CC) -o $@ $^ $(CFLAGS) $(LIBS)
 $(OFOLD)/%.o: $(SRC)/%.c
 	$(CC) -c $< -o $@ $(CFLAGS)
 

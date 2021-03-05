@@ -3,7 +3,7 @@
 #include <inc/message.h>
 #include <inc/general.h>
 
-void start_client(char *host, char *port){
+void start_client(char *host, char *port, char *name, char *pwd){
 
 /*******************   SETTING UP THE CONNECTTION   *******************/
 
@@ -40,9 +40,27 @@ void start_client(char *host, char *port){
 
 /**********************   CONNECTED TO SERVER   ***********************/
 
+    char *hash = generate_argonid_hash(pwd);
+    char server_response[256];
+    send(inet_socket, hash, strlen(hash) + 1, 0);
+    recv(inet_socket, server_response, 256, 0);
+
+    if(strcmp(server_response, "100")){
+        printf("Could not connect (%s). Closing client.\n", server_response);
+        return;
+    }
+
+    free(hash);
+
+    /* Handle disconnect messages etc */
+
     /* Init the message queues */
     init_list(&read_head, &read_tail);
     init_list(&write_head, &write_tail);
+
+    is_server = false;
+
+    strncpy(username, name, MAX_USERNAME_LEN);
     
     pthread_t message_sender, message_listener, user_interface;
 
@@ -63,7 +81,7 @@ void start_client(char *host, char *port){
     *sock_fd = inet_socket;
 
     pthread_create(&message_sender, NULL, write_to_socket, sock_fd);
-    pthread_create(&user_interface, NULL, run_ncurses_window, NULL);
+    pthread_create(&user_interface, NULL, run_ncurses_window, username);
 
     pthread_join(message_sender, NULL);
     pthread_join(message_listener, NULL);

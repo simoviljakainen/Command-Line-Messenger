@@ -3,6 +3,7 @@
         "stdlib.h": "c",
         "message.h": "c",
         "socket_utilities.h": "c",
-        "client.h": "c"
+        "client.h": "c",
+        "argon2.h": "c"
     }
 }

@@ -26,4 +26,6 @@
     void *write_to_socket(void *socket);
     void *read_from_socket(void *socket);
 
+    extern bool is_server;
+
 #endif

@@ -3,17 +3,17 @@
 #include <inc/general.h>
 
 void *message_listener(void *socket);
-void handle_connections(int server_socket, int max_connections);
+void handle_connections(int server_socket, int max_connections, char *pwd);
 void handle_sigpipe(int _);
 void *broadcast_message(void *_);
 int accept_connection(
     int server_socket, int *client_sockets, int client_index,
-    struct sockaddr_in *connections, pthread_t *client_threads);
+    struct sockaddr_in *connections, pthread_t *client_threads, char *pwd);
 
 fd_set connected_sockets;
 int max_socket_fd;
 
-void start_server(char *host, char *port, int max_connections){
+void start_server(char *host, char *port, int max_connections, char *pwd){
 
 /*******************   SETTING UP THE CONNECTTION   *******************/
 
@@ -77,6 +77,7 @@ void start_server(char *host, char *port, int max_connections){
     init_list(&read_head, &read_tail);
     FD_ZERO(&connected_sockets);
     max_socket_fd = 0;
+    is_server = true;
     
     printf("Listening for connections...\n");
 
@@ -86,10 +87,11 @@ void start_server(char *host, char *port, int max_connections){
     pthread_create(&broadcast, NULL, broadcast_message, NULL);
 
     /* Main thread starts handling connections */
-    handle_connections(inet_socket, max_connections);
+    handle_connections(inet_socket, max_connections, pwd);
 
     pthread_join(broadcast, NULL);
 
+    free(pwd);
     empty_list(&read_head);
     close(inet_socket);
 
@@ -98,7 +100,7 @@ void start_server(char *host, char *port, int max_connections){
 
 /* One thread handles connections (main) - 
 The thread will spawn a new thread for every client*/
-void handle_connections(int server_socket, int max_connections){
+void handle_connections(int server_socket, int max_connections, char *pwd){
     int client_index = 0, status;
 
     /* 1024 = Max connections that select can handle */
@@ -133,7 +135,8 @@ void handle_connections(int server_socket, int max_connections){
                 client_sockets,
                 client_index,
                 peer_connections,
-                client_threads
+                client_threads,
+                pwd
             );
 
             if(!status)
@@ -154,12 +157,10 @@ void handle_connections(int server_socket, int max_connections){
 
 int accept_connection(
     int server_socket, int *client_sockets, int client_index,
-    struct sockaddr_in *connections, pthread_t *client_threads){
+    struct sockaddr_in *connections, pthread_t *client_threads, char *pwd){
 
     /* Accept connection */
     socklen_t peer_con_size = sizeof(connections[client_index]);
-
-    /* TODO deny connection - return 1 */
 
     client_sockets[client_index] = accept(
         server_socket,
@@ -177,6 +178,31 @@ int accept_connection(
     );
 
     printf("Connection accepted from %s\n", ip_v4);
+
+    char argonid_hash[256];
+
+    recv(client_sockets[client_index], argonid_hash, 256, 0);
+
+    printf("%s\n", argonid_hash);
+
+    /* Drop connection - wrong password */
+    if(verify_argonid(argonid_hash, pwd)){
+        send(
+            client_sockets[client_index],
+            "401",
+            sizeof("401"), 0
+        );
+        close(client_sockets[client_index]);
+
+        return 1;
+    }
+    
+    send(
+        client_sockets[client_index],
+        "100",
+        sizeof("100"), 0
+    );
+    
 
     /* Add client's socket into client list */
     FD_SET(client_sockets[client_index], &connected_sockets);
