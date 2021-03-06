@@ -14,16 +14,10 @@
     #include <sys/time.h>
     #include <math.h>
 
-    #define SALT_LEN 16
-    #define HASH_LEN 32
-
-    #define NANOSECS_IN_SEC 1000000000
-    #define NANOSECS_IN_MICRO 1000
-
     void handle_error(char *msg, int show_err, char *file, int line);
     uint8_t *pseudo_random_bytes(int bytes);
-    char *generate_argonid_hash(char *password);
-    int verify_argonid(char *hash, char *password);
+    char *generate_argon2id_hash(char *password);
+    int verify_argon2id(char *hash, char *password);
 
     struct timespec nanosec_to_timespec(long nanosecs);
     long timespec_to_nanosec(struct timespec ts);

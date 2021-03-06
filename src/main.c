@@ -1,13 +1,16 @@
+#include <inc/general.h>
+
+#include <inc/setting.h>
+#define INIT
+
 #include <inc/server.h>
 #include <inc/client.h>
 #include <inc/socket_utilities.h>
-#include <inc/general.h>
+
 
 int main(int argc, char *argv[]){
     bool host_mode = false, client_mode = false;
-    char port[MAX_PORT_STR], ipv4[MAX_IPV4_STR] = LOCAL_HOST;
-	char name[MAX_USERNAME_LEN] = DEFAULT_USERNAME, *pwd;
-	uint16_t fps;
+    char port[MAX_PORT_STR], ipv4[MAX_IPV4_STR] = LOCAL_HOST, *pwd;
 
 	if(argc < 2){
 		HANDLE_ERROR("Usage: ./clm -[hc] -p portnum -[suwf] arg", 0);
@@ -48,7 +51,7 @@ int main(int argc, char *argv[]){
 				break;
 
 			case 'u':
-				(optarg != NULL) ? strncpy(name, optarg, MAX_USERNAME_LEN) : "";
+				(optarg != NULL) ? strncpy(username, optarg, MAX_USERNAME_LEN) : "";
 				break;
 
 			case 'w':
@@ -56,7 +59,7 @@ int main(int argc, char *argv[]){
 				break;
 
 			case 'f':
-				(optarg != NULL) ? fps = str_to_uint16_t(optarg) : 0;
+				(optarg != NULL) ? target_fps = str_to_uint16_t(optarg) : 0;
 				break;
 				
 			case '?':
@@ -69,7 +72,7 @@ int main(int argc, char *argv[]){
         start_server(ipv4, port, 2, pwd); //TODO max_connections
 
     }else if(client_mode){
-        start_client(ipv4, port, name, pwd, fps);
+        start_client(ipv4, port, pwd);
 
     }else{
 		HANDLE_ERROR("No mode given [h = host, c = client]", 0);

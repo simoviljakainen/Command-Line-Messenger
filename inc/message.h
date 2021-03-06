@@ -1,12 +1,8 @@
 #ifndef MESSAGE_H
     #define MESSAGE_H
 
+    #include <inc/setting.h>
     #include <inc/general.h>
-
-    #define MAX_MSG_LEN 256
-    #define MAX_USERNAME_LEN 10
-    #define DEFAULT_USERNAME "Heikki"
-    #define ID_SIZE 5
 
     typedef struct msg_{
         char msg[MAX_MSG_LEN];

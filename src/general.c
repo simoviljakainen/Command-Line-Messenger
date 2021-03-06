@@ -1,3 +1,4 @@
+#include <inc/setting.h>
 #include <inc/general.h>
 #include <inc/argon2.h>
 
@@ -27,11 +28,7 @@ uint8_t *pseudo_random_bytes(int bytes){
 	return rand_bytes;
 }
 
-char *generate_argonid_hash(char *password){
-	const uint32_t time_cost = 6;
-	const uint32_t mem_cost = 1024; //Kibibytes
-	const uint32_t threads = 1;
-
+char *generate_argon2id_hash(char *password){
 	uint8_t *salt = pseudo_random_bytes(SALT_LEN);
 	
 	char *argon_hash;
@@ -56,7 +53,7 @@ char *generate_argonid_hash(char *password){
 	return argon_hash;
 }
 
-int verify_argonid(char *hash, char *password){
+int verify_argon2id(char *hash, char *password){
 
 	if(argon2id_verify(hash, password, strlen(password) + 1) ==  ARGON2_OK)
 		return 0;
