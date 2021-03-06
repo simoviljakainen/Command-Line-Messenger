@@ -63,3 +63,33 @@ int verify_argonid(char *hash, char *password){
 	
 	return 1;
 }
+
+struct timespec nanosec_to_timespec(long nanosecs){
+	struct timespec ts;
+
+	ts.tv_sec = nanosecs / NANOSECS_IN_SEC;
+	ts.tv_nsec = nanosecs - (ts.tv_sec * NANOSECS_IN_SEC);
+
+	return ts;
+}
+
+long timespec_to_nanosec(struct timespec ts){
+	long nanosecs = ts.tv_sec * NANOSECS_IN_SEC;
+	nanosecs += ts.tv_nsec;
+
+	return nanosecs;
+}
+
+struct timespec remainder_timespec(struct timespec t1, struct timespec t2){
+	long nanosecs = timespec_to_nanosec(t1) - timespec_to_nanosec(t2);
+	return nanosec_to_timespec(nanosecs);
+}
+
+struct timespec get_time_interval(struct timeval start, struct timeval end){
+	long time_between;
+
+	time_between = (end.tv_sec - start.tv_sec) * NANOSECS_IN_SEC;
+	time_between += (end.tv_usec - start.tv_usec) * NANOSECS_IN_MICRO;
+
+	return nanosec_to_timespec(time_between);
+}

@@ -7,9 +7,10 @@ int main(int argc, char *argv[]){
     bool host_mode = false, client_mode = false;
     char port[MAX_PORT_STR], ipv4[MAX_IPV4_STR] = LOCAL_HOST;
 	char name[MAX_USERNAME_LEN] = DEFAULT_USERNAME, *pwd;
+	uint16_t fps;
 
 	if(argc < 2){
-		HANDLE_ERROR("Usage: ./clm -[hc] -p portnum -[suw] arg", 0);
+		HANDLE_ERROR("Usage: ./clm -[hc] -p portnum -[suwf] arg", 0);
 	}
 
 	/* get cl arguments */
@@ -18,7 +19,7 @@ int main(int argc, char *argv[]){
 
 	srand(time(NULL));
 
-	while((opt = getopt(argc, argv, "hcp:s:u:w:")) != -1){
+	while((opt = getopt(argc, argv, "hcp:s:u:w:f:")) != -1){
 		
 		switch(opt){
 
@@ -53,6 +54,10 @@ int main(int argc, char *argv[]){
 			case 'w':
 				(optarg != NULL) ? pwd = strdup(optarg) : 0;
 				break;
+
+			case 'f':
+				(optarg != NULL) ? fps = str_to_uint16_t(optarg) : 0;
+				break;
 				
 			case '?':
 				printf("Unknown argument: %s.\n", optarg);
@@ -64,7 +69,7 @@ int main(int argc, char *argv[]){
         start_server(ipv4, port, 2, pwd); //TODO max_connections
 
     }else if(client_mode){
-        start_client(ipv4, port, name, pwd);
+        start_client(ipv4, port, name, pwd, fps);
 
     }else{
 		HANDLE_ERROR("No mode given [h = host, c = client]", 0);

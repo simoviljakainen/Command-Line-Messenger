@@ -25,6 +25,7 @@
 
     void *write_to_socket(void *socket);
     void *read_from_socket(void *socket);
+    int read_one_packet(int socket, char *buffer, size_t buffer_size);
 
     extern bool is_server;
 

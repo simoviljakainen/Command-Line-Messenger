@@ -32,6 +32,10 @@ void start_server(char *host, char *port, int max_connections, char *pwd){
     /* Create socket */
     int inet_socket = socket(AF_INET, SOCK_STREAM, 0);
 
+    if(inet_socket == -1){
+        HANDLE_ERROR("Failed to create a socket.", 1);
+    }
+
     /* Create server address */
     struct sockaddr_in server_address;
 
@@ -181,7 +185,10 @@ int accept_connection(
 
     char argonid_hash[256];
 
-    recv(client_sockets[client_index], argonid_hash, 256, 0);
+    if(read_one_packet(client_sockets[client_index], argonid_hash, 256)){
+        close(client_sockets[client_index]);
+        return 1;
+    }
 
     printf("%s\n", argonid_hash);
 
@@ -190,7 +197,7 @@ int accept_connection(
         send(
             client_sockets[client_index],
             "401",
-            sizeof("401"), 0
+            sizeof("401"), MSG_NOSIGNAL
         );
         close(client_sockets[client_index]);
 
@@ -200,7 +207,7 @@ int accept_connection(
     send(
         client_sockets[client_index],
         "100",
-        sizeof("100"), 0
+        sizeof("100"), MSG_NOSIGNAL
     );
     
 
