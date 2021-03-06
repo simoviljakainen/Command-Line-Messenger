@@ -1,6 +1,7 @@
+#include <inc/general.h>
+#include <inc/setting.h>
 #include <inc/message.h>
 #include <inc/window_manager.h>
-#include <inc/general.h>
 
 void display_message_history(Msg *messages, Msg *ptr, int count, WINDOW *win);
 void insert_into_message_history(Msg *messages, int count, Msg msg);
@@ -9,14 +10,12 @@ WINDOW *create_window(int height, int width, int loc_x, int loc_y, int border);
 void init_windows(WINDOW **main, WINDOW **in, WINDOW **border_main, WINDOW **border_in);
 
 int max_y, max_x, max_text_win; //max-window size and maximum lines shown
-uint16_t target_fps; 
-char username[MAX_USERNAME_LEN];
 
 void *run_ncurses_window(void *_){
     WINDOW *main = NULL, *in, *border_in, *border_main;
     Msg messages[MAX_MESSAGE_LIST], *msg_list_ptr = messages, *msg, new;
 
-    /* Set username and placeholder id */
+    /* Set username */
     strncpy(new.username, username, MAX_USERNAME_LEN);
 
     setlocale(LC_ALL, ""); //for utf-8

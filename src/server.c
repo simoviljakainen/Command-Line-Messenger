@@ -1,6 +1,7 @@
+#include <inc/setting.h>
+#include <inc/general.h>
 #include <inc/socket_utilities.h>
 #include <inc/message.h>
-#include <inc/general.h>
 
 void *message_listener(void *socket);
 void handle_connections(int server_socket, int max_connections, char *pwd);
@@ -193,7 +194,7 @@ int accept_connection(
     printf("%s\n", argonid_hash);
 
     /* Drop connection - wrong password */
-    if(verify_argonid(argonid_hash, pwd)){
+    if(verify_argon2id(argonid_hash, pwd)){
         send(
             client_sockets[client_index],
             "401",

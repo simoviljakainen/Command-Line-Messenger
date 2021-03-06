@@ -1,8 +1,7 @@
+#include <inc/setting.h>
+#include <inc/general.h>
 #include <inc/socket_utilities.h>
 #include <inc/message.h>
-#include <inc/general.h>
-
-bool is_server;
 
 uint16_t str_to_uint16_t(char *string){
     long int n;

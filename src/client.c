@@ -1,9 +1,10 @@
+#include <inc/setting.h>
+#include <inc/general.h>
 #include <inc/socket_utilities.h>
 #include <inc/window_manager.h>
 #include <inc/message.h>
-#include <inc/general.h>
 
-void start_client(char *host, char *port, char *name, char *pwd, uint16_t fps){
+void start_client(char *host, char *port, char *pwd){
 
 /*******************   SETTING UP THE CONNECTTION   *******************/
 
@@ -44,7 +45,7 @@ void start_client(char *host, char *port, char *name, char *pwd, uint16_t fps){
 
 /**********************   CONNECTED TO SERVER   ***********************/
 
-    char *hash = generate_argonid_hash(pwd);
+    char *hash = generate_argon2id_hash(pwd);
     char server_response[256];
 
     send(server_socket, hash, strlen(hash) + 1, 0);
@@ -66,10 +67,6 @@ void start_client(char *host, char *port, char *name, char *pwd, uint16_t fps){
     /* Init the message queues */
     init_list(&read_head, &read_tail);
     init_list(&write_head, &write_tail);
-
-    is_server = false;
-    target_fps = fps;
-    strncpy(username, name, MAX_USERNAME_LEN);
     
     pthread_t message_sender, message_listener, user_interface;
 
@@ -90,7 +87,7 @@ void start_client(char *host, char *port, char *name, char *pwd, uint16_t fps){
     *sock_fd = server_socket;
 
     pthread_create(&message_sender, NULL, write_to_socket, sock_fd);
-    pthread_create(&user_interface, NULL, run_ncurses_window, username);
+    pthread_create(&user_interface, NULL, run_ncurses_window, NULL);
 
     pthread_join(message_sender, NULL);
     pthread_join(message_listener, NULL);
