@@ -3,7 +3,7 @@
 #include <inc/message.h>
 #include <inc/general.h>
 
-void start_client(char *host, char *port, char *name, char *pwd){
+void start_client(char *host, char *port, char *name, char *pwd, uint16_t fps){
 
 /*******************   SETTING UP THE CONNECTTION   *******************/
 
@@ -12,8 +12,12 @@ void start_client(char *host, char *port, char *name, char *pwd){
     int16_t port_num = str_to_uint16_t(port);
 
     /* Create a new socket int protocol = 0 default)*/
-    /* SOCK_STREAM -> TCP, SOCK_DGRAM -> UDP */
-    int inet_socket = socket(AF_INET, SOCK_STREAM, 0);
+    /* SOCK_STREAM -> TCP, SOCK_DGRAM -> UDP */    
+    int server_socket = socket(AF_INET, SOCK_STREAM, 0);
+
+    if(server_socket == -1){
+        HANDLE_ERROR("Failed to create a socket.", 1);
+    }
 
     /* Create server address */
     struct sockaddr_in server_address;
@@ -23,7 +27,7 @@ void start_client(char *host, char *port, char *name, char *pwd){
     server_address.sin_addr.s_addr = addr;
 
     int status = connect(
-        inet_socket,
+        server_socket,
         (struct sockaddr *)&server_address,
         sizeof(server_address)
     );
@@ -42,8 +46,13 @@ void start_client(char *host, char *port, char *name, char *pwd){
 
     char *hash = generate_argonid_hash(pwd);
     char server_response[256];
-    send(inet_socket, hash, strlen(hash) + 1, 0);
-    recv(inet_socket, server_response, 256, 0);
+
+    send(server_socket, hash, strlen(hash) + 1, 0);
+    
+    if(read_one_packet(server_socket, server_response, 256)){
+        close(server_socket);
+        return;
+    }
 
     if(strcmp(server_response, "100")){
         printf("Could not connect (%s). Closing client.\n", server_response);
@@ -59,7 +68,7 @@ void start_client(char *host, char *port, char *name, char *pwd){
     init_list(&write_head, &write_tail);
 
     is_server = false;
-
+    target_fps = fps;
     strncpy(username, name, MAX_USERNAME_LEN);
     
     pthread_t message_sender, message_listener, user_interface;
@@ -67,18 +76,18 @@ void start_client(char *host, char *port, char *name, char *pwd){
     /* Allocating heap mem for socket fd as it's sent to threads */
     int *sock_fd;
 
-    if((sock_fd = (int *)malloc(sizeof(inet_socket))) == NULL){
+    if((sock_fd = (int *)malloc(sizeof(server_socket))) == NULL){
         HANDLE_ERROR("Failed to allocate memory for socket fd", 1);
     }
-    *sock_fd = inet_socket;
+    *sock_fd = server_socket;
 
     pthread_create(&message_listener, NULL, read_from_socket, sock_fd);
 
     /* Read/write func frees the memory, hence the reallocation */
-    if((sock_fd = (int *)malloc(sizeof(inet_socket))) == NULL){
+    if((sock_fd = (int *)malloc(sizeof(server_socket))) == NULL){
         HANDLE_ERROR("Failed to allocate memory for socket fd", 1);
     }
-    *sock_fd = inet_socket;
+    *sock_fd = server_socket;
 
     pthread_create(&message_sender, NULL, write_to_socket, sock_fd);
     pthread_create(&user_interface, NULL, run_ncurses_window, username);
@@ -93,7 +102,7 @@ void start_client(char *host, char *port, char *name, char *pwd){
     empty_list(&read_head);
     empty_list(&write_head);
 
-    close(inet_socket);
+    close(server_socket);
 
     return;
 }

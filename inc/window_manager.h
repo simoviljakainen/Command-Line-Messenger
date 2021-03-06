@@ -16,5 +16,6 @@
 void *run_ncurses_window(void *_);
 
 extern char username[MAX_USERNAME_LEN];
+extern uint16_t target_fps;
 
 #endif

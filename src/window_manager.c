@@ -9,9 +9,8 @@ WINDOW *create_window(int height, int width, int loc_x, int loc_y, int border);
 void init_windows(WINDOW **main, WINDOW **in, WINDOW **border_main, WINDOW **border_in);
 
 int max_y, max_x, max_text_win; //max-window size and maximum lines shown
+uint16_t target_fps; 
 char username[MAX_USERNAME_LEN];
-
-typedef struct timespec Tmsc; 
 
 void *run_ncurses_window(void *_){
     WINDOW *main = NULL, *in, *border_in, *border_main;
@@ -19,7 +18,6 @@ void *run_ncurses_window(void *_){
 
     /* Set username and placeholder id */
     strncpy(new.username, username, MAX_USERNAME_LEN);
-    strncpy(new.id, "9999", ID_SIZE);
 
     setlocale(LC_ALL, ""); //for utf-8
     
@@ -30,16 +28,23 @@ void *run_ncurses_window(void *_){
     /* curs_set(0) => hide cursor, returns ERR if request not supported */
     curs_set(0); 
     
-    init_windows(&main, &in, &border_in, &border_main);
-    refresh_windows(4, main, in, border_in, border_main);
+    init_windows(&main, &in, &border_main, &border_in);
+    refresh_windows(4, main, in, border_main, border_in);
 
-    int count = 0, c, msec = 1;
+    int count = 0, c;
     char msg_buffer[MAX_MSG_LEN], *msg_ptr = msg_buffer;
 
+    long target_lap = (1.0 / target_fps) * NANOSECS_IN_SEC;
+
     /* Limit fps */
-    Tmsc sleep_time = {.tv_nsec = msec * 1000000};
+    struct timeval start_time, end_time, test_time; //Only works on Unix
+    struct timespec sleep_time;
+    long elapsed_nsecs;
 
     do{
+        /* Start timer */
+        gettimeofday(&start_time, NULL);
+
         /* Only if input is ready */
         if((c = wgetch(in)) != ERR){
             switch(c){
@@ -59,7 +64,7 @@ void *run_ncurses_window(void *_){
                     break;
 
                 case KEY_RESIZE:
-                    init_windows(&main, &in, &border_in, &border_main);
+                    init_windows(&main, &in, &border_main, &border_in);
                     break;
 
                 case KEY_BACKSPACE:
@@ -98,10 +103,24 @@ void *run_ncurses_window(void *_){
             free(msg);
         }
 
-        display_message_history(messages, msg_list_ptr, count, main);
-        refresh_windows(4, main, in, border_in, border_main);
+
+        /* Calculate sleep time => 1/fps_target - time_taken = sleep */
+        gettimeofday(&end_time, NULL);
+
+        sleep_time = remainder_timespec(
+            nanosec_to_timespec(target_lap),
+            get_time_interval(start_time, end_time)
+        );
+
         nanosleep(&sleep_time, NULL); //cannot use std=c99
 
+        gettimeofday(&test_time, NULL);
+        elapsed_nsecs = timespec_to_nanosec(get_time_interval(start_time, test_time));
+        mvwprintw(border_main, 0, 0, "FPS: %.0lf", round((double)NANOSECS_IN_SEC / elapsed_nsecs));
+        
+        display_message_history(messages, msg_list_ptr, count, main);
+        refresh_windows(4, main, in, border_main, border_in);
+        
     }while(c != 'q'); //TODO update this
 
     endwin();

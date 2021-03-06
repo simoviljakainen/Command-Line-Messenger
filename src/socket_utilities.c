@@ -114,8 +114,6 @@ void *write_to_socket(void *p_socket){
 
     /* Initialize structs */
     FD_ZERO(&connected_socks);
-
-    /* Add server_socket into set */
     FD_SET(socket, &connected_socks);
 
     Msg *outgoing_msg;
@@ -155,8 +153,6 @@ void *read_from_socket(void *p_socket){
 
     /* Initialize structs */
     FD_ZERO(&connected_socks);
-
-    /* Add server_socket into set */
     FD_SET(socket, &connected_socks);
 
     while(true){
@@ -173,4 +169,24 @@ void *read_from_socket(void *p_socket){
     }
 
     return NULL;
+}
+
+int read_one_packet(int socket, char *buffer, size_t buffer_size){
+    fd_set ready_sockets;
+
+    /* Initialize structs */
+    FD_ZERO(&ready_sockets);
+    FD_SET(socket, &ready_sockets);
+
+    /* 3 sec timeout */
+    if(select(socket+1, &ready_sockets, NULL, NULL, &(struct timeval){.tv_sec = 3}) < 0){
+        HANDLE_ERROR("There was problem with read select", 1);
+    }
+
+    if(FD_ISSET(socket, &ready_sockets)){
+        if(recv(socket, buffer, buffer_size, 0) > 0)
+            return 0;
+    }
+        
+    return 1;
 }
