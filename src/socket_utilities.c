@@ -30,15 +30,16 @@ in_addr_t str_to_bin_IP(char *string){
     in_addr_t address;
     
     if((inet_pton(AF_INET, string, &address)) != 1){
-        fprintf(
-            stderr,
-            "Failed to convert the hosting IP (%s) char * -> in_addr_t\n",
-            string
-        );
-        exit(EXIT_FAILURE);
+        HANDLE_ERROR("Failed to convert the IP char * -> in_addr_t", 1);
     }
 
     return address;
+}
+
+void bin_IP_to_str(in_addr_t ip, char *buffer){
+    if(inet_ntop(AF_INET, &ip, buffer, MAX_IPV4_STR) == NULL){
+        HANDLE_ERROR("Failed to convert the in_addr_t -> char *IP", 1);
+    }
 }
 
 char *message_to_ascii_packet(Msg *message, int *size){
