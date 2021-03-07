@@ -20,6 +20,8 @@
     extern pthread_mutex_t r_lock;
     extern pthread_mutex_t w_lock;
 
+    extern pthread_cond_t message_ready;
+
     void empty_list(Msg **head);
     Msg *pop_msg_from_queue(Msg **head, pthread_mutex_t *);
     void add_message_to_queue(Msg new, Msg **head, Msg **tail, pthread_mutex_t *);

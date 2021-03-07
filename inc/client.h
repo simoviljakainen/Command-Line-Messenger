@@ -1,2 +1,2 @@
 
-void start_client(char *host, char *port, char *pwd);
+void start_client(void);

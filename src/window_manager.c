@@ -16,7 +16,7 @@ void *run_ncurses_window(void *_){
     Msg messages[MAX_MESSAGE_LIST], *msg_list_ptr = messages, *msg, new;
 
     /* Set username */
-    strncpy(new.username, username, MAX_USERNAME_LEN);
+    strncpy(new.username, user.username, MAX_USERNAME_LEN);
 
     setlocale(LC_ALL, ""); //for utf-8
     
@@ -33,7 +33,7 @@ void *run_ncurses_window(void *_){
     int count = 0, c;
     char msg_buffer[MAX_MSG_LEN], *msg_ptr = msg_buffer;
 
-    long target_lap = (1.0 / target_fps) * NANOSECS_IN_SEC;
+    long target_lap = (1.0 / connection.fps) * NANOSECS_IN_SEC;
 
     /* Limit fps */
     struct timeval start_time, end_time, test_time; //Only works on Unix
@@ -54,11 +54,17 @@ void *run_ncurses_window(void *_){
 
                     strncpy(new.msg, msg_buffer, MAX_MSG_LEN);
 
+                    pthread_mutex_lock(&w_lock);
+
                     add_message_to_queue(
-                        new, &write_head, &write_tail, &w_lock
+                        new, &write_head, &write_tail, NULL
                     );
+                    pthread_cond_signal(&message_ready);
+
+                    pthread_mutex_unlock(&w_lock);
 
                     msg_ptr = msg_buffer;
+
                     werase(in);
                     break;
 
@@ -103,7 +109,7 @@ void *run_ncurses_window(void *_){
         }
 
 
-        /* Calculate sleep time => 1/fps_target - time_taken = sleep */
+        /* Calculate sleep time = 1/fps_target - time_taken */
         gettimeofday(&end_time, NULL);
 
         sleep_time = remainder_timespec(
@@ -113,10 +119,18 @@ void *run_ncurses_window(void *_){
 
         nanosleep(&sleep_time, NULL); //cannot use std=c99
 
+        /* Calculate the FPS */
         gettimeofday(&test_time, NULL);
-        elapsed_nsecs = timespec_to_nanosec(get_time_interval(start_time, test_time));
-        mvwprintw(border_main, 0, 0, "FPS: %.0lf", round((double)NANOSECS_IN_SEC / elapsed_nsecs));
+        elapsed_nsecs = timespec_to_nanosec(
+            get_time_interval(start_time, test_time)
+        );
         
+        mvwprintw(
+            border_main, 0, 0, "FPS: %.0lf",
+            round((double)NANOSECS_IN_SEC / elapsed_nsecs)
+        );
+        
+        /* Refresh */
         display_message_history(messages, msg_list_ptr, count, main);
         refresh_windows(4, main, in, border_main, border_in);
         

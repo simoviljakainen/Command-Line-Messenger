@@ -25,5 +25,6 @@
     struct timespec get_time_interval(struct timeval start, struct timeval end);
 
     #define HANDLE_ERROR(msg, show_err) handle_error(msg, show_err, __FILE__, __LINE__);
+    #define MUTEX(line, mlock) if(mlock != NULL)pthread_mutex_lock(mlock); line if(mlock != NULL)pthread_mutex_unlock(mlock);
 
 #endif
