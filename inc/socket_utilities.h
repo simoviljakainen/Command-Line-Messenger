@@ -15,6 +15,8 @@
 
     uint16_t str_to_uint16_t(char *string);
     in_addr_t str_to_bin_IP(char *string);
+    void bin_IP_to_str(in_addr_t ip, char *buffer);
+
     void read_message_to_buffer(int client_socket);
     char *message_to_ascii_packet(Msg *message, int *size);
     Msg ascii_packet_to_message(char *data_buffer);
