@@ -1,13 +1,13 @@
 #include <inc/general.h>
 #include <inc/message.h>
 
-#define MUTEX(line, mlock) pthread_mutex_lock(mlock); line pthread_mutex_unlock(mlock);
-
 Msg *read_head, *read_tail;
 Msg *write_head, *write_tail;
 
 pthread_mutex_t r_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t w_lock = PTHREAD_MUTEX_INITIALIZER;
+
+pthread_cond_t message_ready = PTHREAD_COND_INITIALIZER;
 
 /* Not thread safe, should be only used after threads have exited */
 void empty_list(Msg **head){

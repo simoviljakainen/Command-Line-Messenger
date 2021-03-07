@@ -51,7 +51,7 @@ char *message_to_ascii_packet(Msg *message, int *size){
     }
 
     int offset = 0; 
-    /* Insert username */
+
     memcpy(packet, message->username, MAX_USERNAME_LEN); // saves the null byte
     offset += MAX_USERNAME_LEN;
 
@@ -79,95 +79,6 @@ Msg ascii_packet_to_message(char *data_buffer){
     strncpy(message.msg, data_buffer + offset, MAX_MSG_LEN);
 
     return message;
-}
-
-void read_message_into_queue(int socket, char *data_buffer){
-    ssize_t received_bytes;
-    Msg msg;
-
-    int max_size = MAX_MSG_LEN + MAX_USERNAME_LEN + ID_SIZE;
-    
-    received_bytes = recv(socket, data_buffer, max_size, 0);
-
-    if (received_bytes > 0){
-        msg = ascii_packet_to_message(data_buffer);
-        (is_server) ? snprintf(msg.id, ID_SIZE, "%d", socket) : 0;
-
-        add_message_to_queue(msg, &read_head, &read_tail, &r_lock);
-    }
-
-    /* Handle other errors than connection reset */
-    if(received_bytes == -1 && errno != ECONNRESET){
-        HANDLE_ERROR("There was problem with recv", 1);
-    }
-
-    return;
-}
-
-void *write_to_socket(void *p_socket){
-    int socket = *((int *)p_socket);
-
-    free(p_socket);
-
-    fd_set connected_socks, ready_socks;
-
-    /* Initialize structs */
-    FD_ZERO(&connected_socks);
-    FD_SET(socket, &connected_socks);
-
-    Msg *outgoing_msg;
-    char *ascii_packet;
-    int packet_size;
-
-    while(true){
-        ready_socks = connected_socks;
-
-        /* TODO Time out should be set */
-        if(select(socket+1, NULL, &ready_socks, NULL, NULL) < 0){
-            HANDLE_ERROR("There was problem with write select", 1);
-        }
-
-        if(FD_ISSET(socket, &ready_socks)){
-            if((outgoing_msg = pop_msg_from_queue(&write_head, &w_lock)) != NULL){
-
-                ascii_packet = message_to_ascii_packet(outgoing_msg, &packet_size);
-                send(socket, ascii_packet, packet_size, 0);
-
-                free(outgoing_msg);
-                free(ascii_packet);
-            }
-        }
-    }
-  
-    return NULL;
-}
-
-void *read_from_socket(void *p_socket){
-    int socket = *((int *)p_socket);
-    char data_buffer[256];
-
-    free(p_socket);
-
-    fd_set connected_socks, ready_socks;
-
-    /* Initialize structs */
-    FD_ZERO(&connected_socks);
-    FD_SET(socket, &connected_socks);
-
-    while(true){
-        ready_socks = connected_socks;
-
-        /* TODO Time out should be set */
-        if(select(socket+1, &ready_socks, NULL, NULL, NULL) < 0){
-            HANDLE_ERROR("There was problem with read select", 1);
-        }
-
-        if(FD_ISSET(socket, &ready_socks)){
-            read_message_into_queue(socket, data_buffer);
-        }
-    }
-
-    return NULL;
 }
 
 int read_one_packet(int socket, char *buffer, size_t buffer_size){

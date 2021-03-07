@@ -1,10 +1,6 @@
 #ifndef SOCK_UTIL
     #define SOCK_UTIL
 
-    #define MAX_PORT_STR 6
-    #define MAX_IPV4_STR 16
-    #define LOCAL_HOST "0.0.0.0"
-
     #include <unistd.h> //For close
     #include <signal.h>
 
@@ -19,12 +15,15 @@
 
     uint16_t str_to_uint16_t(char *string);
     in_addr_t str_to_bin_IP(char *string);
-    void read_message_to_buffer(int client_socket, char *data_buffer);
+    void read_message_to_buffer(int client_socket);
     char *message_to_ascii_packet(Msg *message, int *size);
     Msg ascii_packet_to_message(char *data_buffer);
-
-    void *write_to_socket(void *socket);
-    void *read_from_socket(void *socket);
     int read_one_packet(int socket, char *buffer, size_t buffer_size);
+
+    typedef struct _client{
+        int socket;
+        struct sockaddr_in addr;
+        pthread_t read_thread;
+    }Client;
 
 #endif
