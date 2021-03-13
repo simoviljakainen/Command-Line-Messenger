@@ -3,29 +3,6 @@
 #include <inc/socket_utilities.h>
 #include <inc/message.h>
 
-uint16_t str_to_uint16_t(char *string){
-    long int n;
-    char *eptr;
-
-    errno = 0;
-
-    n = strtol(string, &eptr, 10);
-
-    if(errno == ERANGE){
-        HANDLE_ERROR("Under or overflow with the conversion: char * -> long", 1);
-    }
-
-    if(eptr == string){
-        HANDLE_ERROR("Failed with the conversion: char * -> long", 0);
-    }
-
-    if(n > __UINT16_MAX__ || n < 0){
-        HANDLE_ERROR("Under or overflow the conversion: long -> uint16_t", 0);
-    }
-
-    return (uint16_t)n;
-}
-
 in_addr_t str_to_bin_IP(char *string){
     in_addr_t address;
     
