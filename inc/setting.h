@@ -35,6 +35,11 @@
         char username[MAX_USERNAME_LEN];
     }User;
 
+    typedef struct _expression{
+        char *exp;
+        char *new;
+    } Exp;
+
 #endif
 
 #ifdef INIT
@@ -55,6 +60,17 @@
 
     User user = {.username = DEFAULT_USERNAME};
 
+    Exp expressions[] = {
+        {.exp = ":poop:", .new = "💩"},
+        {.exp = ":upside_down:", .new = "🙃"},
+        {.exp = ":100:", .new = "💯"},
+        {.exp = ":baby:", .new = "👶"},
+        {.exp = ":shrug:", .new = "🤷"},
+        {.exp = ":scarf:", .new = "🧕"},
+        {.exp = ":eggplant:", .new = "🍆"}
+    };
+    const int expression_count = 7;
+
 #else
 
     extern const uint32_t time_cost;
@@ -63,5 +79,8 @@
 
     extern Connection connection;
     extern User user;
+    
+    extern Exp expressions[];
+    extern const int expression_count;
 
 #endif

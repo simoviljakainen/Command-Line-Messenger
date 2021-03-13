@@ -26,5 +26,6 @@
     Msg *pop_msg_from_queue(Msg **head, pthread_mutex_t *);
     void add_message_to_queue(Msg new, Msg **head, Msg **tail, pthread_mutex_t *);
     void init_list(Msg **head, Msg **tail);
+    Msg compose_message(char *msg, char *id, char *username);
 
 #endif

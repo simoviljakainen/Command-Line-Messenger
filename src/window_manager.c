@@ -8,15 +8,14 @@ void insert_into_message_history(Msg *messages, int count, Msg msg);
 void refresh_windows(int count, ...);
 WINDOW *create_window(int height, int width, int loc_x, int loc_y, int border);
 void init_windows(WINDOW **main, WINDOW **in, WINDOW **border_main, WINDOW **border_in);
+void handle_command(char *command);
+void patch_msg_expressions(char *message);
 
 int max_y, max_x, max_text_win; //max-window size and maximum lines shown
 
 void *run_ncurses_window(void *_){
     WINDOW *main = NULL, *in, *border_in, *border_main;
-    Msg messages[MAX_MESSAGE_LIST], *msg_list_ptr = messages, *msg, new;
-
-    /* Set username */
-    strncpy(new.username, user.username, MAX_USERNAME_LEN);
+    Msg messages[MAX_MESSAGE_LIST], *msg_list_ptr = messages, *msg;
 
     setlocale(LC_ALL, ""); //for utf-8
     
@@ -47,21 +46,24 @@ void *run_ncurses_window(void *_){
         /* Only if input is ready */
         if((c = wgetch(in)) != ERR){
             switch(c){
-                case '\n': case KEY_ENTER:
+                case '\n': case '\r': case KEY_ENTER:
 
                     /* Put the message into the send queue */
                     *msg_ptr = '\0';
 
-                    strncpy(new.msg, msg_buffer, MAX_MSG_LEN);
-
-                    pthread_mutex_lock(&w_lock);
-
-                    add_message_to_queue(
-                        new, &write_head, &write_tail, NULL
-                    );
-                    pthread_cond_signal(&message_ready);
-
-                    pthread_mutex_unlock(&w_lock);
+                    if(*msg_buffer == '/'){
+                        handle_command(&msg_buffer[1]);
+                        
+                    }else{
+                        patch_msg_expressions(msg_buffer);
+                        pthread_mutex_lock(&w_lock);
+                        add_message_to_queue(
+                            compose_message(msg_buffer, NULL, user.username),
+                            &write_head, &write_tail, NULL
+                        );
+                        pthread_cond_signal(&message_ready);
+                        pthread_mutex_unlock(&w_lock);
+                    }
 
                     msg_ptr = msg_buffer;
 
@@ -134,7 +136,7 @@ void *run_ncurses_window(void *_){
         display_message_history(messages, msg_list_ptr, count, main);
         refresh_windows(4, main, in, border_main, border_in);
         
-    }while(c != 'q'); //TODO update this
+    }while(true);
 
     endwin();
 
@@ -153,6 +155,34 @@ WINDOW *create_window(int height, int width, int loc_x, int loc_y, int border){
     }
 
     return win;
+}
+
+void patch_msg_expressions(char *message){
+    int new_len, exp_len, new_msg_len;
+    char *substr, rest[MAX_MSG_LEN];
+
+    for(int i = 0; i < expression_count; i++){
+        substr = message;
+        while((substr = strstr(substr, expressions[i].exp)) != NULL){
+            
+            new_len = strlen(expressions[i].new);
+            exp_len = strlen(expressions[i].exp);
+            new_msg_len = strlen(message) + new_len - exp_len;
+
+            if(new_msg_len > MAX_MSG_LEN - 1)
+                break;
+
+            strcpy(rest, substr + exp_len);
+
+            /* Copy the expression into the original string */
+            memcpy(substr, expressions[i].new, new_len);
+
+            /* Copy rest of the string */
+            memcpy(substr + new_len, rest, strlen(rest) + 1);
+        }
+    }
+
+    return;
 }
 
 void refresh_windows(int count, ...){
@@ -260,6 +290,28 @@ void display_message_history(Msg *messages, Msg *ptr, int count, WINDOW *win){
         wclrtoeol(win);
         mvwprintw(win, i, 1, "%s(%s): %s", ptr[i].username, ptr[i].id, ptr[i].msg);
     }
+
+    return;
+}
+
+#define C_CHANGE_USERNAME "name"
+
+void handle_command(char *raw_command){
+    char command[MAX_MSG_LEN], args[MAX_MSG_LEN], *response;
+
+    sscanf(raw_command, "%s %s", command, args);
+
+    if(!strcmp(command, C_CHANGE_USERNAME)){
+        strncpy(user.username, args, MAX_USERNAME_LEN);
+        response = "Username changed.";
+    }else{
+        response = "Invalid command.";
+    }
+    
+    add_message_to_queue(
+        compose_message(response, "0", "System"),
+        &read_head, &read_tail, &r_lock
+    );
 
     return;
 }

@@ -9,6 +9,17 @@ pthread_mutex_t w_lock = PTHREAD_MUTEX_INITIALIZER;
 
 pthread_cond_t message_ready = PTHREAD_COND_INITIALIZER;
 
+Msg compose_message(char *msg, char *id, char *username){
+    Msg new_message;
+
+    if(msg != NULL) strncpy(new_message.msg, msg, MAX_MSG_LEN);
+    if(username != NULL) strncpy(new_message.username, username, MAX_USERNAME_LEN);
+    if(id != NULL) strncpy(new_message.id, id, ID_SIZE);
+
+    return new_message;
+}
+
+
 /* Not thread safe, should be only used after threads have exited */
 void empty_list(Msg **head){
     Msg *ptr = *head;
@@ -42,8 +53,7 @@ void add_message_to_queue(
     Msg *new;
 
     if((new = (Msg *)malloc(sizeof(Msg))) == NULL){
-        perror("Couldn't allocate memory for a message");
-        exit(EXIT_FAILURE);
+        HANDLE_ERROR("Couldn't allocate memory for a message", 1);
     }
 
     strncpy(new->msg, msg.msg, MAX_MSG_LEN);
