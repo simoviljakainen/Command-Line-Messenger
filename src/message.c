@@ -12,13 +12,15 @@ pthread_cond_t message_ready = PTHREAD_COND_INITIALIZER;
 Msg compose_message(char *msg, char *id, char *username){
     Msg new_message;
 
-    if(msg != NULL) strncpy(new_message.msg, msg, MAX_MSG_LEN);
-    if(username != NULL) strncpy(new_message.username, username, MAX_USERNAME_LEN);
-    if(id != NULL) strncpy(new_message.id, id, ID_SIZE);
+    if(msg != NULL)
+        strncpy(new_message.msg, msg, MAX_MSG_LEN);
+    if(username != NULL)
+        strncpy(new_message.username, username, MAX_USERNAME_LEN);
+    if(id != NULL)
+        strncpy(new_message.id, id, ID_SIZE);
 
     return new_message;
 }
-
 
 /* Not thread safe, should be only used after threads have exited */
 void empty_list(Msg **head){

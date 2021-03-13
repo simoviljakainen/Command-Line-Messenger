@@ -8,7 +8,7 @@ void insert_into_message_history(Msg *messages, int count, Msg msg);
 void refresh_windows(int count, ...);
 WINDOW *create_window(int height, int width, int loc_x, int loc_y, int border);
 void init_windows(WINDOW **main, WINDOW **in, WINDOW **border_main, WINDOW **border_in);
-void handle_command(char *command);
+int handle_command(char *command);
 void patch_msg_expressions(char *message);
 
 int max_y, max_x, max_text_win; //max-window size and maximum lines shown
@@ -50,16 +50,20 @@ void *run_ncurses_window(void *_){
                     *msg_ptr = '\0';
 
                     if(*msg_buffer == '/'){
-                        handle_command(&msg_buffer[1]);
+                        if(handle_command(&msg_buffer[1]))
+                            goto close_UI;
                         
                     }else{
                         patch_msg_expressions(msg_buffer);
+
                         pthread_mutex_lock(&w_lock);
+
                         add_message_to_queue(
                             compose_message(msg_buffer, NULL, user.username),
                             &write_head, &write_tail, NULL
                         );
                         pthread_cond_signal(&message_ready);
+
                         pthread_mutex_unlock(&w_lock);
                     }
 
@@ -135,6 +139,8 @@ void *run_ncurses_window(void *_){
         refresh_windows(4, main, in, border_main, border_in);
         
     }while(true);
+
+    close_UI:
 
     endwin();
 
@@ -294,8 +300,9 @@ void display_message_history(Msg *messages, Msg *ptr, int count, WINDOW *win){
 
 #define C_CHANGE_USERNAME "name"
 #define C_CHANGE_FPS "fps"
+#define C_QUIT "quit"
 
-void handle_command(char *raw_command){
+int handle_command(char *raw_command){
     char command[MAX_MSG_LEN], args[MAX_MSG_LEN], *response;
 
     sscanf(raw_command, "%s %s", command, args);
@@ -308,6 +315,9 @@ void handle_command(char *raw_command){
         connection.fps = (atoi(args)) ? str_to_uint16_t(args) : 60;
         response = "Target FPS changed.";
 
+    }else if(!strcmp(command, C_QUIT)){
+        return 1;
+
     }else{
         response = "Invalid command.";
     }
@@ -317,5 +327,5 @@ void handle_command(char *raw_command){
         &read_head, &read_tail, &r_lock
     );
 
-    return;
+    return 0;
 }
