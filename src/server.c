@@ -232,7 +232,7 @@ void handle_disconnect(int index){
     Msg msg = {.username = "Server", .id = "0"};
     strncpy(msg.msg, buffer, MAX_MSG_LEN);
     
-    add_message_to_queue(msg, &read_head, &read_tail, NULL);
+    add_message_to_queue(msg, &read_head, &read_tail, NULL); //FIXME only broadcasts after 2 cycles
     pthread_cond_signal(&message_ready);
 
     pthread_mutex_unlock(&r_lock);
