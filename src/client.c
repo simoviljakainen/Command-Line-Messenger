@@ -92,9 +92,11 @@ void start_client(void){
     pthread_create(&message_sender, NULL, write_to_server, sock_fd);
     pthread_create(&user_interface, NULL, run_ncurses_window, NULL);
 
-    pthread_join(message_sender, NULL);
-    pthread_join(message_listener, NULL);
     pthread_join(user_interface, NULL);
+
+    /* Close the other threads */
+    pthread_cancel(message_sender);
+    pthread_cancel(message_listener);
 
 /***********************   CONNECTION CLOSED   ************************/
 
