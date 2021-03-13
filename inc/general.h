@@ -18,6 +18,7 @@
     uint8_t *pseudo_random_bytes(int bytes);
     char *generate_argon2id_hash(char *password);
     int verify_argon2id(char *hash, char *password);
+    uint16_t str_to_uint16_t(char *string);
 
     struct timespec nanosec_to_timespec(long nanosecs);
     long timespec_to_nanosec(struct timespec ts);

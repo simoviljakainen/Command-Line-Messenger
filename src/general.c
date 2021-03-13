@@ -2,6 +2,29 @@
 #include <inc/general.h>
 #include <inc/argon2.h>
 
+uint16_t str_to_uint16_t(char *string){
+    long int n;
+    char *eptr;
+
+    errno = 0;
+
+    n = strtol(string, &eptr, 10);
+
+    if(errno == ERANGE){
+        HANDLE_ERROR("Under or overflow with the conversion: char * -> long", 1);
+    }
+
+    if(eptr == string){
+        HANDLE_ERROR("Failed with the conversion: char * -> long", 0);
+    }
+
+    if(n > __UINT16_MAX__ || n < 0){
+        HANDLE_ERROR("Under or overflow the conversion: long -> uint16_t", 0);
+    }
+
+    return (uint16_t)n;
+}
+
 void handle_error(char *msg, int show_err, char *file, int line){
 	fprintf(
 		stderr,

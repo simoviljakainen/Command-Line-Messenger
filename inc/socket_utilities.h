@@ -13,7 +13,6 @@
 
     #include <inc/message.h>
 
-    uint16_t str_to_uint16_t(char *string);
     in_addr_t str_to_bin_IP(char *string);
     void bin_IP_to_str(in_addr_t ip, char *buffer);
 

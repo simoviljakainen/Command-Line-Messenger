@@ -4,6 +4,7 @@ LIBS = ./lib/libargon2.a
 TARGET = clm
 OFOLD = obj
 SRC = src
+INC = inc
 
 OBJ = $(patsubst $(SRC)/%.c, $(OFOLD)/%.o, $(wildcard $(SRC)/*.c))
 

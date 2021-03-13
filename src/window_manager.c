@@ -32,8 +32,6 @@ void *run_ncurses_window(void *_){
     int count = 0, c;
     char msg_buffer[MAX_MSG_LEN], *msg_ptr = msg_buffer;
 
-    long target_lap = (1.0 / connection.fps) * NANOSECS_IN_SEC;
-
     /* Limit fps */
     struct timeval start_time, end_time, test_time; //Only works on Unix
     struct timespec sleep_time;
@@ -115,7 +113,7 @@ void *run_ncurses_window(void *_){
         gettimeofday(&end_time, NULL);
 
         sleep_time = remainder_timespec(
-            nanosec_to_timespec(target_lap),
+            nanosec_to_timespec((1.0 / connection.fps) * NANOSECS_IN_SEC),
             get_time_interval(start_time, end_time)
         );
 
@@ -295,6 +293,7 @@ void display_message_history(Msg *messages, Msg *ptr, int count, WINDOW *win){
 }
 
 #define C_CHANGE_USERNAME "name"
+#define C_CHANGE_FPS "fps"
 
 void handle_command(char *raw_command){
     char command[MAX_MSG_LEN], args[MAX_MSG_LEN], *response;
@@ -304,6 +303,11 @@ void handle_command(char *raw_command){
     if(!strcmp(command, C_CHANGE_USERNAME)){
         strncpy(user.username, args, MAX_USERNAME_LEN);
         response = "Username changed.";
+
+    }else if(!strcmp(command, C_CHANGE_FPS)){
+        connection.fps = (atoi(args)) ? str_to_uint16_t(args) : 60;
+        response = "Target FPS changed.";
+
     }else{
         response = "Invalid command.";
     }
