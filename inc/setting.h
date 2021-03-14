@@ -9,11 +9,14 @@
     #define ID_SIZE 5
     #define DEFAULT_USERNAME "Heikki"
     #define DEFAULT_PASSWORD "KimmoHeikkiPena"
+    #define MAX_BUFFER 256
 
     #define MAX_PORT_STR 6
     #define MAX_IPV4_STR 16
     #define LOCAL_HOST "0.0.0.0"
     #define DEFAULT_PORT "1337"
+    #define RESPONSE_OK "100"
+    #define RESPONSE_FAIL "401"
 
     /* Argon2id */
     #define SALT_LEN 16
@@ -21,6 +24,18 @@
 
     #define NANOSECS_IN_SEC 1000000000
     #define NANOSECS_IN_MICRO 1000
+
+    /* Window border */
+    #define SB '|' // Side
+    #define TB '=' // Top
+    #define BB '=' // Bottom
+    #define CB '+' // Corner
+
+    /* Client/server commands */
+    #define C_CHANGE_USERNAME "name"
+    #define C_CHANGE_FPS "fps"
+    #define C_QUIT "quit"
+    #define C_KICK "kick"
 
     typedef struct _connection{
         char ipv4[MAX_IPV4_STR];

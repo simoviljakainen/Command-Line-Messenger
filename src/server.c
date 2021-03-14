@@ -93,16 +93,16 @@ void start_server(void){
 
     pthread_create(&connection_handler, NULL, handle_connections, sock_fd);
 
-    char buffer[256], command[256], args[256];
+    char buffer[MAX_BUFFER], command[MAX_BUFFER], args[MAX_BUFFER];
     int index;
     while(true){
-        fgets(buffer, 256, stdin);
+        fgets(buffer, MAX_BUFFER, stdin);
         sscanf(buffer, "%s %s", command, args);
 
-        if(!strcmp(command, "stop")){
+        if(!strcmp(command, C_QUIT)){
             break;
 
-        }else if(!strcmp(command, "kick")){
+        }else if(!strcmp(command, C_KICK)){
             if((index = find_client_index(atoi(args))) != -1)
                 handle_disconnect(index);
         }
@@ -154,10 +154,6 @@ void *handle_connections(void *p_socket){
         }
     }
 
-/*******************   ALL CONNECTIONS ACCEPTED   *******************/
-
-    printf("All connections accepted.");
-
     return NULL;
 }
 
@@ -176,9 +172,9 @@ int accept_connection(int server_socket){
     bin_IP_to_str(new_client.addr.sin_addr.s_addr, ip_v4);
     printf("Connection incoming from %s\n", ip_v4);
 
-    char argon2id_hash[256];
+    char argon2id_hash[MAX_BUFFER];
 
-    if(read_one_packet(new_client.socket, argon2id_hash, 256)){
+    if(read_one_packet(new_client.socket, argon2id_hash, MAX_BUFFER)){
         close(new_client.socket);
         return 1;
     }
@@ -187,18 +183,20 @@ int accept_connection(int server_socket){
     if(verify_argon2id(argon2id_hash, connection.password)){
         send(
             new_client.socket,
-            "401",
-            sizeof("401"), MSG_NOSIGNAL
+            RESPONSE_FAIL,
+            sizeof(RESPONSE_FAIL), MSG_NOSIGNAL
         );
         close(new_client.socket);
 
         return 1;
     }
-    
+
+/**********************   CONNECTION ACCEPTED   **********************/
+
     send(
         new_client.socket,
-        "100",
-        sizeof("100"), MSG_NOSIGNAL
+        RESPONSE_OK,
+        sizeof(RESPONSE_OK), MSG_NOSIGNAL
     );
 
     printf("Connection accepted from %s\n", ip_v4);
@@ -239,10 +237,10 @@ int accept_connection(int server_socket){
 }
 
 void handle_disconnect(int index){
-    char buffer[256];
+    char buffer[MAX_BUFFER];
 
     snprintf(
-        buffer, 256,
+        buffer, MAX_BUFFER,
         "------- Client(%d) has left the chat  -------",
         clients[index].socket
     );
