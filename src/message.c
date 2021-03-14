@@ -13,11 +13,11 @@ Msg compose_message(char *msg, char *id, char *username){
     Msg new_message;
 
     if(msg != NULL)
-        strncpy(new_message.msg, msg, MAX_MSG_LEN);
+        snprintf(new_message.msg, MAX_MSG_LEN, "%s", msg);
     if(username != NULL)
-        strncpy(new_message.username, username, MAX_USERNAME_LEN);
+        snprintf(new_message.username, MAX_USERNAME_LEN, "%s", username);
     if(id != NULL)
-        strncpy(new_message.id, id, ID_SIZE);
+        snprintf(new_message.id, ID_SIZE, "%s", id);
 
     return new_message;
 }
@@ -58,9 +58,10 @@ void add_message_to_queue(
         HANDLE_ERROR("Couldn't allocate memory for a message", 1);
     }
 
-    strncpy(new->msg, msg.msg, MAX_MSG_LEN);
-    strncpy(new->username, msg.username, MAX_USERNAME_LEN);
-    strncpy(new->id, msg.id, ID_SIZE);
+
+    snprintf(new->msg, MAX_MSG_LEN, "%s", msg.msg);
+    snprintf(new->username, MAX_USERNAME_LEN, "%s", msg.username);
+    snprintf(new->id, ID_SIZE, "%s", msg.id);
 
     new->next = NULL;
 

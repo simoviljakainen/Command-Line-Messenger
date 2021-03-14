@@ -28,34 +28,46 @@ int main(int argc, char *argv[]){
 
             /* Connection port - needed for both client and host */
 			case 'p':
-                strncpy(connection.port, optarg, MAX_PORT_STR);
+				snprintf(
+					connection.port, MAX_PORT_STR,
+					"%s", optarg
+				);
                 break;
 
             /* Source IP - connection or binding for host */
 			case 's':
 				if(optarg)
-					strncpy(connection.ipv4, optarg, MAX_IPV4_STR);
+					snprintf(
+						connection.ipv4, MAX_IPV4_STR,
+						"%s", optarg
+					);
 				break;
 
 			/* Client's display name */
 			case 'u':
 				if(optarg)
-					strncpy(user.username, optarg, MAX_USERNAME_LEN);
+					snprintf(
+						user.username, MAX_USERNAME_LEN,
+						"%s", optarg
+					);
 				break;
 
 			/* Password for the chat room */
 			case 'w':
 				if(optarg)
-					strncpy(connection.password, optarg, MAX_PASSWORD_LEN);
+					snprintf(
+						connection.password, MAX_PASSWORD_LEN,
+						"%s", optarg
+					);
+
 				break;
 
-			/* Server/client fps/cycles */
+			/* client fps/cycles */
 			case 'f':
 				if(optarg)
 					connection.fps = str_to_uint16_t(optarg);
 				break;
-				
-			/* Server/client fps/cycles */
+
 			case 'm':
 				if(optarg)
 					connection.max_connections = str_to_uint16_t(optarg);

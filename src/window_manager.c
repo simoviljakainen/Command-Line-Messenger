@@ -308,7 +308,10 @@ int handle_command(char *raw_command){
     sscanf(raw_command, "%s %s", command, args);
 
     if(!strcmp(command, C_CHANGE_USERNAME)){
-        strncpy(user.username, args, MAX_USERNAME_LEN);
+        snprintf(
+			user.username, MAX_USERNAME_LEN,
+			"%s", args
+		);
         response = "Username changed.";
 
     }else if(!strcmp(command, C_CHANGE_FPS)){

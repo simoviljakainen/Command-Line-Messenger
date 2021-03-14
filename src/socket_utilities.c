@@ -47,15 +47,14 @@ Msg ascii_packet_to_message(char *data_buffer){
     Msg message;
 
     int offset = 0;
-
-    strncpy(message.username, data_buffer, MAX_USERNAME_LEN);
+    snprintf(message.username, MAX_USERNAME_LEN, "%s", data_buffer);
     offset += MAX_USERNAME_LEN;
 
-    strncpy(message.id, data_buffer + offset, ID_SIZE);
+    snprintf(message.id, ID_SIZE, "%s", data_buffer + offset);
     offset += ID_SIZE;
 
-    strncpy(message.msg, data_buffer + offset, MAX_MSG_LEN);
-
+    snprintf(message.msg, MAX_MSG_LEN, "%s", data_buffer + offset);
+    
     return message;
 }
 

@@ -3,12 +3,15 @@
 #include <inc/socket_utilities.h>
 #include <inc/message.h>
 
-void handle_connections(int server_socket);
+void *handle_connections(void *p_socket);
 void handle_sigpipe(int _);
 int accept_connection(int server_socket);
+void handle_disconnect(int index);
 
 void *message_listener(void *socket);
 void *broadcast_message(void *_);
+
+int find_client_index(int socket);
 
 Client clients[FD_SETSIZE];
 int client_index = 0;
@@ -76,15 +79,43 @@ void start_server(void){
     
     printf("Listening for connections...\n");
 
-    pthread_t broadcast;
+    pthread_t broadcaster, connection_handler;
 
     /* Start message broadcast thread */
-    pthread_create(&broadcast, NULL, broadcast_message, NULL);
+    pthread_create(&broadcaster, NULL, broadcast_message, NULL);
 
-    /* Main thread starts handling connections */
-    handle_connections(inet_socket);
+    int *sock_fd;
 
-    pthread_join(broadcast, NULL);
+    if((sock_fd = (int *)malloc(sizeof(inet_socket))) == NULL){
+        HANDLE_ERROR("Failed to allocate memory for socket fd", 1);
+    }
+    *sock_fd = inet_socket;
+
+    pthread_create(&connection_handler, NULL, handle_connections, sock_fd);
+
+    char buffer[256], command[256], args[256];
+    int index;
+    while(true){
+        fgets(buffer, 256, stdin);
+        sscanf(buffer, "%s %s", command, args);
+
+        if(!strcmp(command, "stop")){
+            break;
+
+        }else if(!strcmp(command, "kick")){
+            if((index = find_client_index(atoi(args))) != -1)
+                handle_disconnect(index);
+        }
+    }
+
+    pthread_cancel(broadcaster);
+    pthread_cancel(connection_handler);
+
+    /* Close all client connections */
+    for(int i = 0; i <= client_index; i++){
+        pthread_cancel(clients[i].read_thread);
+        close(clients[i].socket);
+    }
 
     empty_list(&read_head);
     close(inet_socket);
@@ -94,7 +125,12 @@ void start_server(void){
 
 /* One thread handles connections (main) - 
 The thread will start a new thread for every client*/
-void handle_connections(int server_socket){
+void *handle_connections(void *p_socket){
+    int server_socket = *((int *)p_socket);
+    free(p_socket);
+    
+    pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
+
     int clients_connected = 0;
     fd_set server_sockets, ready_socks;
 
@@ -120,13 +156,9 @@ void handle_connections(int server_socket){
 
 /*******************   ALL CONNECTIONS ACCEPTED   *******************/
 
-    printf("All connections accepted. Waiting threads to finish\n");
+    printf("All connections accepted.");
 
-    for(int i = 0; i < client_index; i++){
-        pthread_join(clients[i].read_thread, NULL);
-    }
-
-    return;
+    return NULL;
 }
 
 int accept_connection(int server_socket){
@@ -173,10 +205,12 @@ int accept_connection(int server_socket){
 
     pthread_mutex_lock(&r_lock);
 
-    add_message_to_queue((Msg) {
-        .msg = "------- New connection accepted -------",
-        .username = "Server",
-        .id = "0"}, &read_head, &read_tail, NULL);
+    add_message_to_queue(
+        compose_message(
+            "------- New connection accepted -------",
+            "0",
+            "Server"
+        ), &read_head, &read_tail, NULL);
     
     pthread_cond_signal(&message_ready);
 
@@ -213,7 +247,10 @@ void handle_disconnect(int index){
         clients[index].socket
     );
 
-    pthread_cancel(clients[index].read_thread);
+    /* Don't cancel yourself */
+    if(pthread_self() != clients[index].read_thread)
+        pthread_cancel(clients[index].read_thread); 
+
     close(clients[index].socket);
 
     /* Remove the client from the clients arr */
@@ -229,10 +266,10 @@ void handle_disconnect(int index){
     /* Broadcast the lost boi */
     pthread_mutex_lock(&r_lock);
 
-    Msg msg = {.username = "Server", .id = "0"};
-    strncpy(msg.msg, buffer, MAX_MSG_LEN);
-    
-    add_message_to_queue(msg, &read_head, &read_tail, NULL); //FIXME only broadcasts after 2 cycles
+    add_message_to_queue(
+        compose_message(buffer, "0", "Server"),
+        &read_head, &read_tail, NULL
+    );
     pthread_cond_signal(&message_ready);
 
     pthread_mutex_unlock(&r_lock);
@@ -240,12 +277,22 @@ void handle_disconnect(int index){
     return;
 }
 
+int find_client_index(int socket){
+    for(int i = 0; i <= client_index; i++){
+        if(clients[i].socket == socket)
+            return i;
+    }
+    return -1;
+}
+
 /* Puts messages sent by client into a queue for broadcasts */
 void *message_listener(void *p_socket){
-    int socket = *((int *)p_socket);
+    int index, socket = *((int *)p_socket);
     free(p_socket);
 
-    fd_set connected_socks, ready_socks;        /* TODO Time out should be set */
+    pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
+
+    fd_set connected_socks, ready_socks;
 
     /* Initialize structs */
     FD_ZERO(&connected_socks);
@@ -268,22 +315,24 @@ void *message_listener(void *p_socket){
         if(FD_ISSET(socket, &ready_socks)){
             received_bytes = recv(socket, data_buffer, max_size, 0);
 
-            if (received_bytes > 0){
-                msg = ascii_packet_to_message(data_buffer);
-                snprintf(msg.id, ID_SIZE, "%d", socket);
+            /* There was a connection error or it was orderly closed */
+            if(received_bytes <= 0){
+                if((index = find_client_index(socket)) != -1)
+                    handle_disconnect(index);
 
-                pthread_mutex_lock(&r_lock);
-
-                add_message_to_queue(msg, &read_head, &read_tail, NULL);
-                pthread_cond_signal(&message_ready);
-
-                pthread_mutex_unlock(&r_lock);
+                return NULL;
             }
 
-            /* Handle other errors than connection reset */
-            if(received_bytes == -1 && errno != ECONNRESET){
-                HANDLE_ERROR("There was problem with recv", 1);
-            }
+            msg = ascii_packet_to_message(data_buffer);
+            snprintf(msg.id, ID_SIZE, "%d", socket);
+
+            pthread_mutex_lock(&r_lock);
+
+            add_message_to_queue(msg, &read_head, &read_tail, NULL);
+            pthread_cond_signal(&message_ready);
+
+            pthread_mutex_unlock(&r_lock);
+
         }
     }
 
@@ -295,6 +344,8 @@ void *broadcast_message(void *_){
     Msg *outgoing_msg;
     int size;
     char *ascii_packet;
+
+    pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
 
     while(true){
 
