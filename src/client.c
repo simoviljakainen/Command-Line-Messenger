@@ -49,16 +49,16 @@ void start_client(void){
 /**********************   CONNECTED TO SERVER   ***********************/
 
     char *argon2id_hash = generate_argon2id_hash(connection.password);
-    char server_response[256];
+    char server_response[MAX_BUFFER];
 
     send(server_socket, argon2id_hash, strlen(argon2id_hash) + 1, 0);
     
-    if(read_one_packet(server_socket, server_response, 256)){
+    if(read_one_packet(server_socket, server_response, MAX_BUFFER)){
         close(server_socket);
         return;
     }
 
-    if(strcmp(server_response, "100")){
+    if(strcmp(server_response, RESPONSE_OK)){
         printf("Could not connect (%s). Closing client.\n", server_response);
         return;
     }
@@ -173,7 +173,7 @@ void *read_from_server(void *p_socket){
             received_bytes = recv(socket, data_buffer, max_size, 0);
 
             if(received_bytes <= 0){
-                
+
                 add_message_to_queue(
                     compose_message(
                         "------- Server closed the connection -------",

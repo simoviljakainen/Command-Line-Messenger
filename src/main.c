@@ -59,7 +59,6 @@ int main(int argc, char *argv[]){
 						connection.password, MAX_PASSWORD_LEN,
 						"%s", optarg
 					);
-
 				break;
 
 			/* client fps/cycles */

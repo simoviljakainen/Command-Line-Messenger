@@ -155,7 +155,7 @@ WINDOW *create_window(int height, int width, int loc_x, int loc_y, int border){
     }
 
     if(border){
-        wborder(win, '|', '|', '-', '-', '+', '+', '+', '+');
+        wborder(win, SB, SB, TB, BB, CB, CB, CB, CB);
     }
 
     return win;
@@ -297,10 +297,6 @@ void display_message_history(Msg *messages, Msg *ptr, int count, WINDOW *win){
 
     return;
 }
-
-#define C_CHANGE_USERNAME "name"
-#define C_CHANGE_FPS "fps"
-#define C_QUIT "quit"
 
 int handle_command(char *raw_command){
     char command[MAX_MSG_LEN], args[MAX_MSG_LEN], *response;
