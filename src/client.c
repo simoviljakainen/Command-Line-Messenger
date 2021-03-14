@@ -114,6 +114,8 @@ void *write_to_server(void *p_socket){
     int socket = *((int *)p_socket);
     free(p_socket);
 
+    pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
+
     Msg *outgoing_msg;
     char *ascii_packet;
     int packet_size;
@@ -146,6 +148,8 @@ void *read_from_server(void *p_socket){
     int socket = *((int *)p_socket);
     free(p_socket);
 
+    pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
+
     fd_set connected_socks, ready_socks;
 
     /* Initialize structs */
@@ -161,7 +165,6 @@ void *read_from_server(void *p_socket){
     while(true){
         ready_socks = connected_socks;
 
-        /* TODO Time out should be set */
         if(select(socket+1, &ready_socks, NULL, NULL, NULL) < 0){
             HANDLE_ERROR("There was problem with read select", 1);
         }
@@ -169,15 +172,21 @@ void *read_from_server(void *p_socket){
         if(FD_ISSET(socket, &ready_socks)){
             received_bytes = recv(socket, data_buffer, max_size, 0);
 
-            if (received_bytes > 0){
-                msg = ascii_packet_to_message(data_buffer);
-                add_message_to_queue(msg, &read_head, &read_tail, &r_lock);
-            }
+            if(received_bytes <= 0){
+                
+                add_message_to_queue(
+                    compose_message(
+                        "------- Server closed the connection -------",
+                        "0",
+                        "System"
+                    ), &read_head, &read_tail, &r_lock);
 
-            /* Handle other errors than connection reset */
-            if(received_bytes == -1 && errno != ECONNRESET){
-                HANDLE_ERROR("There was problem with recv", 1);
+                return NULL;
             }
+            
+            msg = ascii_packet_to_message(data_buffer);
+            add_message_to_queue(msg, &read_head, &read_tail, &r_lock);
+
         }
     }
 

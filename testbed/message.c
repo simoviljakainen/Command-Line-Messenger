@@ -44,7 +44,7 @@ void add_message_to_queue(char *msg, Msg **head, Msg **tail){
         exit(EXIT_FAILURE);
     }
 
-    strncpy(new->msg, msg, MAX_MSG_LENGHT);
+    snprintf(new->msg, MAX_MSG_LENGHT, "%s", msg);
 
     new->next = NULL;
 
