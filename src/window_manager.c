@@ -3,19 +3,28 @@
 #include <inc/message.h>
 #include <inc/window_manager.h>
 
-void display_message_history(Msg *messages, Msg *ptr, int count, WINDOW *win);
-void insert_into_message_history(Msg *messages, int count, Msg msg);
 void refresh_windows(int count, ...);
 WINDOW *create_window(int height, int width, int loc_x, int loc_y, int border);
 void init_windows(WINDOW **main, WINDOW **in, WINDOW **border_main, WINDOW **border_in);
 int handle_command(char *command);
 void patch_msg_expressions(char *message);
 
-int max_y, max_x, max_text_win; //max-window size and maximum lines shown
+int get_char_width(char *c, int size);
+int get_char_from_string(char *string, char *c);
+int parse_message_to_rows(Msg *message, char **rows, int row_count);
+
+void insert_into_message_history(Msg *messages, int count, Msg msg);
+void insert_into_row_history(char **rows, int count, char *row, int len);
+void display_message_history(char **rows, char **ptr, int row_count, WINDOW *win);
+int fix_row_lengths(Msg *messages, int m_count, char **rows);
+
+int main_maxx, max_text_win; //max-window size and maximum lines shown
+
 
 void *run_ncurses_window(void *_){
     WINDOW *main = NULL, *in, *border_in, *border_main;
-    Msg messages[MAX_MESSAGE_LIST], *msg_list_ptr = messages, *msg;
+    Msg messages[MAX_MESSAGE_LIST], *msg;
+    char *row_history[MAX_MESSAGE_LIST], **row_ptr = row_history;
 
     setlocale(LC_ALL, ""); //for utf-8
     
@@ -29,30 +38,29 @@ void *run_ncurses_window(void *_){
     init_windows(&main, &in, &border_main, &border_in);
     refresh_windows(4, main, in, border_main, border_in);
 
-    int count = 0, c;
+    int msg_count = 0, c_byte, row_count = 0, rows_in_msg;
     char msg_buffer[MAX_MSG_LEN], *msg_ptr = msg_buffer;
 
-    /* Limit fps */
-    struct timeval start_time, end_time, test_time; //Only works on Unix
+    struct timeval start_time, end_time, test_time; 
     struct timespec sleep_time;
     long elapsed_nsecs;
 
     do{
         /* Start timer */
-        gettimeofday(&start_time, NULL);
+        gettimeofday(&start_time, NULL); //Only works on Unix
 
         /* Only if input is ready */
-        if((c = wgetch(in)) != ERR){
-            switch(c){
+        if((c_byte = wgetch(in)) != ERR){
+            switch(c_byte){
                 case '\n': case '\r': case KEY_ENTER:
 
-                    /* Put the message into the send queue */
                     *msg_ptr = '\0';
 
                     if(*msg_buffer == '/'){
                         if(handle_command(&msg_buffer[1]))
                             goto close_UI;
                         
+                    /* Put the message into the send queue */
                     }else{
                         patch_msg_expressions(msg_buffer);
 
@@ -74,26 +82,32 @@ void *run_ncurses_window(void *_){
 
                 case KEY_RESIZE:
                     init_windows(&main, &in, &border_main, &border_in);
+                    row_count = fix_row_lengths(messages, msg_count, row_history);
+                    row_ptr = row_history;
                     break;
 
                 case KEY_BACKSPACE:
                     wdelch(in);
-                    msg_ptr--;
+                    if(msg_ptr > msg_buffer)
+                        msg_ptr--;
                     break;
 
                 case KEY_UP:
-                    if(msg_list_ptr > messages)
-                        msg_list_ptr--;
+                    if(row_ptr > row_history)
+                        row_ptr--;
                     break;
 
                 case KEY_DOWN:
-                    if(msg_list_ptr < &messages[count - max_text_win])
-                        msg_list_ptr++;
+                    if(row_ptr < &row_history[row_count - max_text_win])
+                        row_ptr++;
                     break;
 
                 default:
+                    if(c_byte & 0x80) //if not ascii
+                        continue;
+
                     if(msg_ptr < &msg_buffer[MAX_MSG_LEN-1]){
-                        *msg_ptr = c;
+                        *msg_ptr = c_byte;
                         msg_ptr++;
                     }
                     break;
@@ -102,16 +116,20 @@ void *run_ncurses_window(void *_){
 
         if((msg = pop_msg_from_queue(&read_head, &r_lock)) != NULL){
 
-            insert_into_message_history(messages, count, *msg);
+            insert_into_message_history(messages, msg_count, *msg);
+            rows_in_msg = parse_message_to_rows(msg, row_history, row_count);
                     
-            (count < MAX_MESSAGE_LIST) ? count++ : 0;
+            row_count += rows_in_msg;
+            (row_count > MAX_MESSAGE_LIST) ? row_count = MAX_MESSAGE_LIST : 0;
+            
+            (msg_count < MAX_MESSAGE_LIST) ? msg_count++ : 0;
 
-            if(count > max_text_win && msg_list_ptr < &messages[count - max_text_win])
-                msg_list_ptr++;
+            /* Move the row window only if the window is full of text */
+            if(row_count > max_text_win && row_ptr < &row_history[row_count - max_text_win])
+                row_ptr += rows_in_msg;
 
             free(msg);
         }
-
 
         /* Calculate sleep time = 1/fps_target - time_taken */
         gettimeofday(&end_time, NULL);
@@ -135,16 +153,82 @@ void *run_ncurses_window(void *_){
         );
         
         /* Refresh */
-        display_message_history(messages, msg_list_ptr, count, main);
+        display_message_history(row_history, row_ptr, row_count, main);
         refresh_windows(4, main, in, border_main, border_in);
         
     }while(true);
 
     close_UI:
+        /* Clean row history */
+        for(int i = 0; i < row_count; i++)
+            free(row_history[i]);
+        
+        delwin(main);
+        delwin(border_main);
+        delwin(in);
+        delwin(border_in);
 
-    endwin();
+        endwin();
 
     return NULL;
+}
+
+int parse_message_to_rows(Msg *message, char **rows, int row_count){
+    int row_idx = row_count, max_boi = main_maxx;
+    int char_size = 0, char_bytes = 0, cur_row_len = 0;
+
+    int max_msg_size = MAX_USERNAME_LEN + ID_SIZE + MAX_MSG_LEN + 1;
+
+    char row_buff[max_boi * MAX_BYTES_IN_CHAR], raw_message[max_msg_size];
+    char *char_ptr, wide_char[MAX_BYTES_IN_CHAR], *sub_row_ptr;
+
+    /* Concat the user details and message */
+    snprintf(
+        raw_message, max_msg_size,
+        "%s(%s): %s",
+        message->username, message->id, message->msg
+    );
+
+    char_ptr = raw_message;
+    sub_row_ptr = row_buff;
+
+    while(true){
+        char_size = get_char_from_string(char_ptr, wide_char);
+        
+        if(*wide_char == '\0') // if the message ends, end the loop
+            break;
+
+        memcpy(sub_row_ptr, wide_char, char_size);
+
+        char_bytes += char_size; // length in bytes
+        sub_row_ptr += char_size;
+        cur_row_len += get_char_width(wide_char, char_size); // length in characters
+
+        if(cur_row_len == max_boi){ //row is full
+            insert_into_row_history(rows, row_idx++, row_buff, char_bytes);
+
+            sub_row_ptr = row_buff;
+            char_bytes = 0;
+            cur_row_len = 0;
+        }        
+        char_ptr += char_size;
+    }
+
+    if(char_bytes > 0){ //save last row    
+        insert_into_row_history(rows, row_idx++, row_buff, char_bytes);
+    }
+
+    return row_idx - row_count;            
+}
+
+int fix_row_lengths(Msg *messages, int msg_count, char **rows){
+    int row_count = 0;
+
+    for(int i = 0; i < msg_count; i++){
+        row_count += parse_message_to_rows(&messages[i], rows, row_count);
+    }
+
+    return (row_count > MAX_MESSAGE_LIST) ? MAX_MESSAGE_LIST : row_count;
 }
 
 WINDOW *create_window(int height, int width, int loc_x, int loc_y, int border){
@@ -209,7 +293,8 @@ void refresh_windows(int count, ...){
 
 void init_windows(
     WINDOW **main, WINDOW **in, WINDOW **border_main, WINDOW **border_in){
-
+    
+    int max_y, max_x;
     getmaxyx(stdscr, max_y, max_x);
 
     if(max_y < WIN_BORDER_SIZE_Y * 4 + MSGBOX_LINES + MSGBOX_PAD_Y)
@@ -257,9 +342,33 @@ void init_windows(
     );
 
     max_text_win = ((*border_in)->_begy) - (*main)->_begy;
+    main_maxx = getmaxx(*main);
 
     nodelay(*in, TRUE); //input does not block output
     keypad(*in, TRUE); //ncurses interpret keys
+
+    return;
+}
+
+void insert_into_row_history(char **rows, int count, char *row, int len){
+
+    (count > MAX_MESSAGE_LIST) ? count = MAX_MESSAGE_LIST : 0;
+
+    /* Rows are shifted - oldest row is discarded */
+    if(count == MAX_MESSAGE_LIST){
+        int i;
+        free(rows[0]);
+
+        for(i = 0; i < count-1; i++){
+            rows[i] = rows[i+1];
+        }
+
+        rows[i] = strndup(row, len);
+
+        return;
+    }
+
+    rows[count] = strndup(row, len);
 
     return;
 }
@@ -284,15 +393,49 @@ void insert_into_message_history(Msg *messages, int count, Msg msg){
     return;
 }
 
-/* FIXME multiline messages do not work. next message will go over */
-void display_message_history(Msg *messages, Msg *ptr, int count, WINDOW *win){
+/* Print the character into a window to determine its width */
+int get_char_width(char *wide_char, int size){
+    static WINDOW *test_win = NULL;
 
-    for(int i = 0; i < count && i < max_text_win; i++){
-        if(&ptr[i] > &messages[count-1])
-            continue;
+    char *char_ptr = strndup(wide_char, size);
 
+    if(test_win == NULL)
+        test_win = newwin(1, main_maxx, 0, 0);
+    else
+        wmove(test_win, 0, 0);
+
+    wprintw(test_win, "%s", char_ptr);
+    free(char_ptr);
+    
+    return getcurx(test_win);
+}
+
+int get_char_from_string(char *string, char *c){
+    char ch = *string;
+    int size = 1;
+
+    /* Check for char's leading byte */
+    if((ch & 0xE0) == 0xC0)
+        size = 2; //2 byte - utf-8
+    else if((ch & 0xF0) == 0xE0)
+        size = 3; //3 byte - utf-8
+    else if((ch & 0xF8) == 0xF0)
+        size = 4; //4 byte - utf-8
+    
+    memcpy(c, string, size);
+    
+    return size;
+}
+
+void display_message_history(char **rows, char **ptr, int row_count, WINDOW *win){
+
+    for(int i = 0; i < row_count && i < max_text_win; i++){
+        if(&ptr[i] > &rows[row_count-1])
+            break;
+
+        wmove(win, i, 0); //Moving the cursor for the clear
         wclrtoeol(win);
-        mvwprintw(win, i, 1, "%s(%s): %s", ptr[i].username, ptr[i].id, ptr[i].msg);
+        mvwprintw(win, i, 0, "%s", ptr[i]);
     }
 
     return;

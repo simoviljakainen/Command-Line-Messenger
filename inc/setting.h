@@ -10,6 +10,7 @@
     #define DEFAULT_USERNAME "Heikki"
     #define DEFAULT_PASSWORD "KimmoHeikkiPena"
     #define MAX_BUFFER 256
+    #define MAX_BYTES_IN_CHAR 4
 
     #define MAX_PORT_STR 6
     #define MAX_IPV4_STR 16

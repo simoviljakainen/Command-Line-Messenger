@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -pedantic -I. -g -lpthread -lncursesw -lm
+CFLAGS = -Wall -pedantic -I. -g -lpthread -lncursesw -lm --coverage
 LIBS = ./lib/libargon2.a
 TARGET = clm
 OFOLD = obj
