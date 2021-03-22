@@ -9,8 +9,10 @@ void init_windows(WINDOW **main, WINDOW **in, WINDOW **border_main, WINDOW **bor
 int handle_command(char *command);
 void patch_msg_expressions(char *message);
 
+int get_char_size(char lead_byte);
 int get_char_width(char *c, int size);
 int get_char_from_string(char *string, char *c);
+void fix_multibyte_chars(char *start, char *end);
 int parse_message_to_rows(Msg *message, char **rows, int row_count);
 
 void insert_into_message_history(Msg *messages, int count, Msg msg);
@@ -53,6 +55,8 @@ void *run_ncurses_window(void *_){
         if((c_byte = wgetch(in)) != ERR){
             switch(c_byte){
                 case '\n': case '\r': case KEY_ENTER:
+
+                    fix_multibyte_chars(msg_buffer, msg_ptr);
 
                     *msg_ptr = '\0';
 
@@ -103,8 +107,8 @@ void *run_ncurses_window(void *_){
                     break;
 
                 default:
-                    if(c_byte & 0x80) //if not ascii
-                        continue;
+                    //if(c_byte & 0x80) //if not ascii
+                      //  continue;
 
                     if(msg_ptr < &msg_buffer[MAX_MSG_LEN-1]){
                         *msg_ptr = c_byte;
@@ -174,12 +178,12 @@ void *run_ncurses_window(void *_){
 }
 
 int parse_message_to_rows(Msg *message, char **rows, int row_count){
-    int row_idx = row_count, max_boi = main_maxx;
+    int row_idx = row_count;
     int char_size = 0, char_bytes = 0, cur_row_len = 0;
 
-    int max_msg_size = MAX_USERNAME_LEN + ID_SIZE + MAX_MSG_LEN + 1;
+    int max_msg_size = MAX_MSG_SIZE + 4;
 
-    char row_buff[max_boi * MAX_BYTES_IN_CHAR], raw_message[max_msg_size];
+    char row_buff[max_msg_size], raw_message[max_msg_size];
     char *char_ptr, wide_char[MAX_BYTES_IN_CHAR], *sub_row_ptr;
 
     /* Concat the user details and message */
@@ -204,7 +208,9 @@ int parse_message_to_rows(Msg *message, char **rows, int row_count){
         sub_row_ptr += char_size;
         cur_row_len += get_char_width(wide_char, char_size); // length in characters
 
-        if(cur_row_len == max_boi){ //row is full
+        if(cur_row_len >= main_maxx){ //row is full
+            (cur_row_len > main_maxx) ? char_bytes -= char_size : 0;
+
             insert_into_row_history(rows, row_idx++, row_buff, char_bytes);
 
             sub_row_ptr = row_buff;
@@ -268,6 +274,21 @@ void patch_msg_expressions(char *message){
             /* Copy rest of the string */
             memcpy(substr + new_len, rest, strlen(rest) + 1);
         }
+    }
+
+    return;
+}
+
+void fix_multibyte_chars(char *start, char *end){
+    int size;
+
+    for(int i = 1; i <= MAX_BYTES_IN_CHAR && end >= start; i++, end--){
+       size = get_char_size(*end);
+
+       if(i < size){
+           *end = '\0';
+           break;
+       }
     }
 
     return;
@@ -410,18 +431,24 @@ int get_char_width(char *wide_char, int size){
     return getcurx(test_win);
 }
 
-int get_char_from_string(char *string, char *c){
-    char ch = *string;
+int get_char_size(char lead_byte){
     int size = 1;
 
     /* Check for char's leading byte */
-    if((ch & 0xE0) == 0xC0)
+    if((lead_byte & 0xE0) == 0xC0)
         size = 2; //2 byte - utf-8
-    else if((ch & 0xF0) == 0xE0)
+    else if((lead_byte & 0xF0) == 0xE0)
         size = 3; //3 byte - utf-8
-    else if((ch & 0xF8) == 0xF0)
+    else if((lead_byte & 0xF8) == 0xF0)
         size = 4; //4 byte - utf-8
     
+    return size;
+}
+
+int get_char_from_string(char *string, char *c){
+    char ch = *string;
+
+    int size = get_char_size(ch);
     memcpy(c, string, size);
     
     return size;
