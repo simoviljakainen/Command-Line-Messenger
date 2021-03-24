@@ -14,4 +14,10 @@
 
     void *run_ncurses_window(void *_);
 
+    typedef struct _row{
+        char *username;
+        char *row_content;
+        int color;
+    }Row;
+
 #endif

@@ -34,6 +34,19 @@ void *run_ncurses_window(void *_){
         HANDLE_ERROR("Failed to initialize ncurses window.", 0);
     }
 
+    if(has_colors() && can_change_color()){
+        start_color();
+        init_color(COLOR_BLACK, 150, 150, 150);
+        init_color(COLOR_WHITE, 800, 800, 800);
+        init_color(9, 700, 235, 20);
+        init_color(8, 170, 170, 170);
+        init_pair(1, COLOR_RED, COLOR_BLACK);
+        init_pair(2, COLOR_YELLOW, COLOR_BLACK);
+        init_pair(3, COLOR_MAGENTA, COLOR_BLACK);
+        init_pair(4, COLOR_GREEN, COLOR_BLACK);
+        //wcolor_set(WINDOW *win, short color_pair_number, void* opts);
+    }
+        
     /* curs_set(0) => hide cursor, returns ERR if request not supported */
     curs_set(0); 
     
@@ -55,8 +68,10 @@ void *run_ncurses_window(void *_){
         if((c_byte = wgetch(in)) != ERR){
             switch(c_byte){
                 case '\n': case '\r': case KEY_ENTER:
+                    if(msg_ptr == msg_buffer)
+                        continue;
 
-                    fix_multibyte_chars(msg_buffer, msg_ptr);
+                    fix_multibyte_chars(msg_buffer, msg_ptr-1);
 
                     *msg_ptr = '\0';
 
@@ -107,9 +122,6 @@ void *run_ncurses_window(void *_){
                     break;
 
                 default:
-                    //if(c_byte & 0x80) //if not ascii
-                      //  continue;
-
                     if(msg_ptr < &msg_buffer[MAX_MSG_LEN-1]){
                         *msg_ptr = c_byte;
                         msg_ptr++;
@@ -151,10 +163,12 @@ void *run_ncurses_window(void *_){
             get_time_interval(start_time, test_time)
         );
         
+        wattron(border_main, COLOR_PAIR(2));
         mvwprintw(
             border_main, 0, 0, "FPS: %.0lf",
             round((double)NANOSECS_IN_SEC / elapsed_nsecs)
         );
+        wattroff(border_main, COLOR_PAIR(2));
         
         /* Refresh */
         display_message_history(row_history, row_ptr, row_count, main);
@@ -167,12 +181,12 @@ void *run_ncurses_window(void *_){
         for(int i = 0; i < row_count; i++)
             free(row_history[i]);
         
+        endwin();
+        
         delwin(main);
         delwin(border_main);
         delwin(in);
         delwin(border_in);
-
-        endwin();
 
     return NULL;
 }
@@ -181,15 +195,13 @@ int parse_message_to_rows(Msg *message, char **rows, int row_count){
     int row_idx = row_count;
     int char_size = 0, char_bytes = 0, cur_row_len = 0;
 
-    int max_msg_size = MAX_MSG_SIZE + 4;
-
-    char row_buff[max_msg_size], raw_message[max_msg_size];
+    char row_buff[MAX_ROW_SIZE], raw_message[MAX_ROW_SIZE];
     char *char_ptr, wide_char[MAX_BYTES_IN_CHAR], *sub_row_ptr;
 
     /* Concat the user details and message */
     snprintf(
-        raw_message, max_msg_size,
-        "%s(%s): %s",
+        raw_message, MAX_ROW_SIZE,
+        ROW_FORMAT,
         message->username, message->id, message->msg
     );
 
@@ -367,6 +379,13 @@ void init_windows(
 
     nodelay(*in, TRUE); //input does not block output
     keypad(*in, TRUE); //ncurses interpret keys
+
+    if(has_colors() && can_change_color()){
+        //init_pair(1, COLOR_RED, COLOR_BLACK);
+        wattrset(*main, COLOR_PAIR(1));
+        //wbkgd(*border_main,COLOR_PAIR(2));
+        //wcolor_set(*border_main, COLOR_PAIR(1), NULL);
+    }
 
     return;
 }
