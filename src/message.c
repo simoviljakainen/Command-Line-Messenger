@@ -10,7 +10,7 @@ pthread_mutex_t w_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t message_ready = PTHREAD_COND_INITIALIZER;
 
 Msg compose_message(char *msg, char *id, char *username){
-    Msg new_message;
+    Msg new_message = {.id="ERROR", .next = NULL};
 
     if(msg != NULL)
         snprintf(new_message.msg, MAX_MSG_LEN, "%s", msg);
@@ -54,10 +54,9 @@ void add_message_to_queue(
 
     Msg *new;
 
-    if((new = (Msg *)malloc(sizeof(Msg))) == NULL){
+    if((new = (Msg *)calloc(1, sizeof(Msg))) == NULL){
         HANDLE_ERROR("Couldn't allocate memory for a message", 1);
     }
-
 
     snprintf(new->msg, MAX_MSG_LEN, "%s", msg.msg);
     snprintf(new->username, MAX_USERNAME_LEN, "%s", msg.username);
