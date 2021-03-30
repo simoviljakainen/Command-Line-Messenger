@@ -10,7 +10,7 @@ pthread_mutex_t w_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t message_ready = PTHREAD_COND_INITIALIZER;
 
 Msg compose_message(char *msg, char *id, char *username){
-    Msg new_message = {.id="ERROR", .next = NULL};
+    Msg new_message = {.id="00", .next = NULL};
 
     if(msg != NULL)
         snprintf(new_message.msg, MAX_MSG_LEN, "%s", msg);
