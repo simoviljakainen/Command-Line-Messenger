@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -pedantic -I. -g -lpthread
+CFLAGS = -Wall -pedantic -I. -g -lpthread -lsodium
 TARGET = clm
 OFOLD = obj
 SRC = src

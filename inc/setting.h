@@ -66,7 +66,7 @@
 
     /* Argon2id */
     const uint32_t time_cost = 6;
-	const uint32_t mem_cost = 1024; //Kibibytes
+	const uint32_t mem_cost = 15 * 1024; //OWASP recommends 15 MiBs min
 	const uint32_t threads = 1;
 
     Connection connection = {

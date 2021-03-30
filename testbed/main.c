@@ -5,11 +5,27 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+#include <sodium.h>
 
 #include "message.h"
 #include "window_manager.h"
 
 int main(int argc, char *argv[]){
+	if (sodium_init() < 0){
+		printf("Could not initialize sodium. Not safe to use.\n");
+		exit(1);
+	}
+
+	uint8_t buff[256];
+
+	randombytes_buf(buff, 255);
+
+	for(int i = 0; i < 256; i++){
+		printf("%02x", buff[i]);
+	}
+	puts("");
+
+#if 0
 	pthread_t window_thread;
 
 	init_g(&read_head, &read_tail);
@@ -19,7 +35,6 @@ int main(int argc, char *argv[]){
 	pthread_join(window_thread, NULL);
 
 	char buffer[256];
-#if 0
 	while(1){
 		fgets(buffer, 256, stdin);
 		buffer[strlen(buffer)-1] = '\0';

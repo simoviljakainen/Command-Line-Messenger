@@ -65,7 +65,7 @@ int read_one_packet(int socket, char *buffer, size_t buffer_size){
     FD_ZERO(&ready_sockets);
     FD_SET(socket, &ready_sockets);
 
-    /* 3 sec timeout */
+    /* TODO 3 sec timeout */
     if(select(socket+1, &ready_sockets, NULL, NULL, &(struct timeval){.tv_sec = 3}) < 0){
         HANDLE_ERROR("There was problem with read select", 1);
     }
