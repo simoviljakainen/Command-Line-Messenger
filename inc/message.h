@@ -6,7 +6,7 @@
 
     typedef struct msg_{
         char msg[MAX_MSG_LEN];
-        char *rows[MAX_MSG_LEN];
+        char **rows;
         int row_count;
         char username[MAX_USERNAME_LEN];
         char id[ID_SIZE];

@@ -15,19 +15,19 @@ int get_char_from_string(char *string, char *c);
 void fix_multibyte_chars(char *start, char *end);
 int parse_message_to_rows(Msg *message);
 
-void insert_into_message_history(Msg *messages, int count, Msg msg);
-void insert_into_row_history(char **rows, int count, char *row, int len);
+int insert_into_message_history(Msg *messages, int count, Msg msg);
+void insert_to_msg_rows(char ***rows, int count, char *row, int len);
 void display_message_history(Msg *messages, int msg_count, WINDOW *win, int offset);
-int fix_row_lengths(Msg *messages, int m_count, char **rows);
+int fix_row_lengths(Msg *messages, int msg_count);
 int handle_offset(int old_offset, int increment, int times, int row_count);
+
+void free_msg_rows(Msg *msg);
 
 int main_maxx, max_text_win; //max-window size and maximum lines shown
 
 
 void *run_ncurses_window(void *_){
     WINDOW *main = NULL, *in, *border_in, *border_main;
-    Msg messages[MAX_MESSAGE_LIST], *msg;
-    char *row_history[MAX_MESSAGE_LIST], **row_ptr = row_history;
 
     setlocale(LC_ALL, ""); //for utf-8
     
@@ -53,6 +53,8 @@ void *run_ncurses_window(void *_){
     
     init_windows(&main, &in, &border_main, &border_in);
     refresh_windows(4, main, in, border_main, border_in);
+
+    Msg messages[MAX_MESSAGE_LIST], *msg;
 
     int msg_count = 0, c_byte, row_count = 0, rows_in_msg, offset = 0;
     char msg_buffer[MAX_MSG_LEN], *msg_ptr = msg_buffer;
@@ -102,8 +104,8 @@ void *run_ncurses_window(void *_){
 
                 case KEY_RESIZE:
                     init_windows(&main, &in, &border_main, &border_in);
-                    row_count = fix_row_lengths(messages, msg_count, row_history);
-                    //row_ptr = row_history;
+                    row_count = fix_row_lengths(messages, msg_count);
+                    offset = 0;
                     break;
 
                 case KEY_BACKSPACE:
@@ -113,13 +115,11 @@ void *run_ncurses_window(void *_){
                     break;
 
                 case KEY_UP:
-                    if(row_ptr > row_history)
-                        row_ptr--;
+                    offset = handle_offset(offset, -1, 1, row_count);
                     break;
 
                 case KEY_DOWN:
-                    if(row_ptr < &row_history[row_count - max_text_win])
-                        row_ptr++;
+                    offset = handle_offset(offset, 1, 1, row_count);
                     break;
 
                 default:
@@ -133,12 +133,9 @@ void *run_ncurses_window(void *_){
 
         if((msg = pop_msg_from_queue(&read_head, &r_lock)) != NULL){
 
-            insert_into_message_history(messages, msg_count, *msg);
-            rows_in_msg = parse_message_to_rows(&messages[msg_count]);
-                    
-            row_count += rows_in_msg;
-            (row_count > MAX_MESSAGE_LIST) ? row_count = MAX_MESSAGE_LIST : 0;
-            
+            rows_in_msg = insert_into_message_history(messages, msg_count, *msg);
+                                
+            row_count += rows_in_msg;         
             (msg_count < MAX_MESSAGE_LIST) ? msg_count++ : 0;
 
             /* Move the row window only if the window is full of text */
@@ -179,8 +176,8 @@ void *run_ncurses_window(void *_){
 
     close_UI:
         /* Clean row history */
-        for(int i = 0; i < row_count; i++)
-            free(row_history[i]);
+        for(int i = 0; i < msg_count; i++)
+            free_msg_rows(&messages[i]);
         
         endwin();
         
@@ -205,14 +202,11 @@ int handle_offset(int old_offset, int increment, int times, int row_count){
         new_offset += increment;
         times--;
 
-        if(new_offset > row_count)
-            return new_offset;
+        if(new_offset > row_count - max_text_win)
+            return new_offset-increment;
 
-        if (new_offset < 1)
-            return new_offset;
-
-        if(row_count > MAX_MESSAGE_LIST)
-            return new_offset;
+        if (new_offset < 0)
+            return new_offset-increment;
     }
 
     return new_offset;
@@ -250,7 +244,7 @@ int parse_message_to_rows(Msg *message){
         if(cur_row_len >= main_maxx){ //row is full
             (cur_row_len > main_maxx) ? char_bytes -= char_size : 0;
 
-            insert_into_row_history(message->rows, row_idx++, row_buff, char_bytes);
+            insert_to_msg_rows(&message->rows, row_idx++, row_buff, char_bytes);
 
             sub_row_ptr = row_buff;
             char_bytes = 0;
@@ -260,7 +254,7 @@ int parse_message_to_rows(Msg *message){
     }
 
     if(char_bytes > 0){ //save last row    
-        insert_into_row_history(message->rows, row_idx++, row_buff, char_bytes);
+        insert_to_msg_rows(&message->rows, row_idx++, row_buff, char_bytes);
     }
 
     message->row_count = row_idx;
@@ -268,14 +262,26 @@ int parse_message_to_rows(Msg *message){
     return row_idx;            
 }
 
-int fix_row_lengths(Msg *messages, int msg_count, char **rows){
+void free_msg_rows(Msg *msg){
+
+    for(int i = 0; i < msg->row_count; i++)
+        free(msg->rows[i]);
+    free(msg->rows);
+
+    msg->rows = NULL;
+
+    return;
+}
+
+int fix_row_lengths(Msg *messages, int msg_count){
     int row_count = 0;
 
     for(int i = 0; i < msg_count; i++){
+        free_msg_rows(&messages[i]);
         row_count += parse_message_to_rows(&messages[i]);
     }
 
-    return (row_count > MAX_MESSAGE_LIST) ? MAX_MESSAGE_LIST : row_count;
+    return row_count;
 }
 
 WINDOW *create_window(int height, int width, int loc_x, int loc_y, int border){
@@ -419,47 +425,42 @@ void init_windows(
     return;
 }
 
-void insert_into_row_history(char **rows, int count, char *row, int len){
+void insert_to_msg_rows(char ***rows, int count, char *row, int len){
 
-    (count > MAX_MESSAGE_LIST) ? count = MAX_MESSAGE_LIST : 0;
-
-    /* Rows are shifted - oldest row is discarded */
-    if(count == MAX_MESSAGE_LIST){
-        int i;
-        free(rows[0]);
-
-        for(i = 0; i < count-1; i++){
-            rows[i] = rows[i+1];
-        }
-
-        rows[i] = strndup(row, len);
-
-        return;
+    if((*rows = (char **)realloc(*rows, (count+1) * sizeof(char *))) == NULL){
+        HANDLE_ERROR("Couldn't allocate memory for msg rows", 1);
     }
-    //rows = realloc(rows, count * sizeof(char *));
-    rows[count] = strndup(row, len);
+    (*rows)[count] = strndup(row, len);
 
     return;
 }
 
-void insert_into_message_history(Msg *messages, int count, Msg msg){
+/* Copy the message into the point x*/
+int insert_into_message_history(Msg *messages, int count, Msg msg){
+    int rows_in_msg, old_rows;
 
     /* Messages are shifted - oldest message is discarded */
     if(count == MAX_MESSAGE_LIST){
         int i;
+
+        /* free oldest message */
+        old_rows = messages[0].row_count;
+        free_msg_rows(&messages[0]);
 
         for(i = 0; i < count-1; i++){
             messages[i] = messages[i+1];
         }
 
         messages[i] = msg;
+        rows_in_msg = parse_message_to_rows(&messages[i]);
 
-        return;
+        return rows_in_msg - old_rows;
     }
 
     messages[count] = msg;
+    rows_in_msg = parse_message_to_rows(&messages[count]);
 
-    return;
+    return rows_in_msg;
 }
 
 /* Print the character into a window to determine its width */
@@ -520,11 +521,9 @@ void display_message_history(Msg *messages, int msg_count, WINDOW *win, int offs
             current_index++;
 
             if(current_index == max_text_win)
-                goto done;
+                return;
         }
     }
-    
-    done:
 
     return;
 }
