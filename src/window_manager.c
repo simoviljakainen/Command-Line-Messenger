@@ -15,7 +15,7 @@ int get_char_from_string(char *string, char *c);
 void fix_multibyte_chars(char *start, char *end);
 int parse_message_to_rows(Msg *message);
 
-int insert_into_message_history(Msg *messages, int count, Msg msg);
+int insert_into_message_history(Msg *messages, int *count, Msg msg);
 void insert_to_msg_rows(char ***rows, int count, char *row, int len);
 void display_message_history(Msg *messages, int msg_count, WINDOW *win, int offset);
 int fix_row_lengths(Msg *messages, int msg_count);
@@ -133,10 +133,8 @@ void *run_ncurses_window(void *_){
 
         if((msg = pop_msg_from_queue(&read_head, &r_lock)) != NULL){
 
-            rows_in_msg = insert_into_message_history(messages, msg_count, *msg);
-                                
+            rows_in_msg = insert_into_message_history(messages, &msg_count, *msg);         
             row_count += rows_in_msg;         
-            (msg_count < MAX_MESSAGE_LIST) ? msg_count++ : 0;
 
             /* Move the row window only if the window is full of text */
             if(row_count > max_text_win)
@@ -187,10 +185,6 @@ void *run_ncurses_window(void *_){
         delwin(border_in);
 
     return NULL;
-}
-
-int absolute_val(int val){
-    return (val < 0) ? -val: val;
 }
 
 /* Offset == what row (1->row_count) is the first one to be displayed */
@@ -264,8 +258,8 @@ int parse_message_to_rows(Msg *message){
 
 void free_msg_rows(Msg *msg){
 
-    for(int i = 0; i < msg->row_count; i++)
-        free(msg->rows[i]);
+    for(int row_idx = 0; row_idx < msg->row_count; row_idx++)
+        free(msg->rows[row_idx]);
     free(msg->rows);
 
     msg->rows = NULL;
@@ -276,9 +270,9 @@ void free_msg_rows(Msg *msg){
 int fix_row_lengths(Msg *messages, int msg_count){
     int row_count = 0;
 
-    for(int i = 0; i < msg_count; i++){
-        free_msg_rows(&messages[i]);
-        row_count += parse_message_to_rows(&messages[i]);
+    for(int msg_idx = 0; msg_idx < msg_count; msg_idx++){
+        free_msg_rows(&messages[msg_idx]);
+        row_count += parse_message_to_rows(&messages[msg_idx]);
     }
 
     return row_count;
@@ -436,29 +430,30 @@ void insert_to_msg_rows(char ***rows, int count, char *row, int len){
 }
 
 /* Copy the message into the point x*/
-int insert_into_message_history(Msg *messages, int count, Msg msg){
-    int rows_in_msg, old_rows;
+int insert_into_message_history(Msg *messages, int *count, Msg msg){
+    int rows_in_msg;
 
     /* Messages are shifted - oldest message is discarded */
-    if(count == MAX_MESSAGE_LIST){
-        int i;
+    if(*count == MAX_MESSAGE_LIST){
+        int msg_idx, old_row_count;
 
         /* free oldest message */
-        old_rows = messages[0].row_count;
+        old_row_count = messages[0].row_count;
         free_msg_rows(&messages[0]);
 
-        for(i = 0; i < count-1; i++){
-            messages[i] = messages[i+1];
+        for(msg_idx = 0; msg_idx < (*count)-1; msg_idx++){
+            messages[msg_idx] = messages[msg_idx+1];
         }
 
-        messages[i] = msg;
-        rows_in_msg = parse_message_to_rows(&messages[i]);
+        messages[msg_idx] = msg;
+        rows_in_msg = parse_message_to_rows(&messages[msg_idx]);
 
-        return rows_in_msg - old_rows;
+        return rows_in_msg - old_row_count;
     }
 
-    messages[count] = msg;
-    rows_in_msg = parse_message_to_rows(&messages[count]);
+    messages[*count] = msg;
+    rows_in_msg = parse_message_to_rows(&messages[*count]);
+    (*count)++;
 
     return rows_in_msg;
 }
@@ -504,23 +499,23 @@ int get_char_from_string(char *string, char *c){
 }
 
 void display_message_history(Msg *messages, int msg_count, WINDOW *win, int offset){
-    int current_index = 0;
+    int cur_idx = 0;
 
-    for(int i = 0; i < msg_count; i++){
-        for(int row = 0; row < messages[i].row_count; row++){
+    for(int msg_idx = 0; msg_idx < msg_count; msg_idx++){
+        for(int row_idx = 0; row_idx < messages[msg_idx].row_count; row_idx++){
             
             if(offset > 0){
                 offset--;
                 continue;
             }
 
-            wmove(win, current_index, 0); //Moving the cursor for the clear
+            wmove(win, cur_idx, 0); //Moving the cursor for the clear
             wclrtoeol(win);
-            mvwprintw(win, current_index, 0, "%s", messages[i].rows[row]);
+            mvwprintw(win, cur_idx, 0, "%s", messages[msg_idx].rows[row_idx]);
             
-            current_index++;
+            cur_idx++;
 
-            if(current_index == max_text_win)
+            if(cur_idx == max_text_win-1)
                 return;
         }
     }
