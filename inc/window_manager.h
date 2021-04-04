@@ -12,6 +12,9 @@
     #define WIN_BORDER_SIZE_Y 1
     #define WIN_BORDER_SIZE_X 1
 
+    #define COLOR(lines, win, cid) wattron(win, COLOR_PAIR(cid)); lines\
+            wattroff(win, COLOR_PAIR(cid));
+
     void *run_ncurses_window(void *_);
 
 #endif

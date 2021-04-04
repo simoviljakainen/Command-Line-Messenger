@@ -4,11 +4,18 @@
     #include <inc/setting.h>
     #include <inc/general.h>
 
+    typedef struct _cchar{
+        int color;
+        int bytes;
+    }CChar;
+
     typedef struct msg_{
         char msg[MAX_MSG_LEN];
         char **rows;
         int row_count;
         char username[MAX_USERNAME_LEN];
+        CChar *username_colors;
+        int color_count;
         char id[ID_SIZE];
 
         struct msg_ *next;
@@ -29,5 +36,6 @@
     void add_message_to_queue(Msg new, Msg **head, Msg **tail, pthread_mutex_t *);
     void init_list(Msg **head, Msg **tail);
     Msg compose_message(char *msg, char *id, char *username);
+    void parse_username_for_msg(Msg *dest, char *src);
 
 #endif

@@ -6,25 +6,26 @@
 void refresh_windows(int count, ...);
 WINDOW *create_window(int height, int width, int loc_x, int loc_y, int border);
 void init_windows(WINDOW **main, WINDOW **in, WINDOW **border_main, WINDOW **border_in);
+int init_colors(void);
 int handle_command(char *command);
-void patch_msg_expressions(char *message);
 
 int get_char_size(char lead_byte);
 int get_char_width(char *c, int size);
 int get_char_from_string(char *string, char *c);
 void fix_multibyte_chars(char *start, char *end);
 int parse_message_to_rows(Msg *message);
+void patch_msg_expressions(char *message);
 
 int insert_into_message_history(Msg *messages, int *count, Msg msg);
-void insert_to_msg_rows(char ***rows, int count, char *row, int len);
+void insert_into_msg_rows(char ***rows, int count, char *row, int len);
 void display_message_history(Msg *messages, int msg_count, WINDOW *win, int offset);
 int fix_row_lengths(Msg *messages, int msg_count);
 int handle_offset(int old_offset, int increment, int times, int row_count);
 
 void free_msg_rows(Msg *msg);
+void free_msg_username_colors(Msg *msg);
 
-int main_maxx, max_text_win; //max-window size and maximum lines shown
-
+int main_maxx, max_text_win, colors_supported; //max-window size and maximum lines shown
 
 void *run_ncurses_window(void *_){
     WINDOW *main = NULL, *in, *border_in, *border_main;
@@ -35,18 +36,7 @@ void *run_ncurses_window(void *_){
         HANDLE_ERROR("Failed to initialize ncurses window.", 0);
     }
 
-    if(has_colors() && can_change_color()){
-        start_color();
-        init_color(COLOR_BLACK, 150, 150, 150);
-        init_color(COLOR_WHITE, 800, 800, 800);
-        init_color(9, 700, 235, 20);
-        init_color(8, 170, 170, 170);
-        init_pair(1, COLOR_RED, COLOR_BLACK);
-        init_pair(2, COLOR_YELLOW, COLOR_BLACK);
-        init_pair(3, COLOR_MAGENTA, COLOR_BLACK);
-        init_pair(4, COLOR_GREEN, COLOR_BLACK);
-        //wcolor_set(WINDOW *win, short color_pair_number, void* opts);
-    }
+    colors_supported = init_colors();
         
     /* curs_set(0) => hide cursor, returns ERR if request not supported */
     curs_set(0); 
@@ -137,7 +127,7 @@ void *run_ncurses_window(void *_){
             row_count += rows_in_msg;         
 
             /* Move the row window only if the window is full of text */
-            if(row_count > max_text_win)
+            if(row_count > max_text_win - 1)
                 offset = handle_offset(offset, 1, rows_in_msg, row_count);
 
             free(msg);
@@ -159,13 +149,14 @@ void *run_ncurses_window(void *_){
             get_time_interval(start_time, test_time)
         );
         
-        wattron(border_main, COLOR_PAIR(2));
-        mvwprintw(
-            border_main, 0, 0, "FPS: %.0lf",
-            round((double)NANOSECS_IN_SEC / elapsed_nsecs)
-        );
-        wattroff(border_main, COLOR_PAIR(2));
-        
+        COLOR(
+            mvwprintw(
+                border_main, 0, 0, "FPS: %.0lf",
+                round((double)NANOSECS_IN_SEC / elapsed_nsecs)
+            );
+            ,border_main, 2
+        )
+
         /* Refresh */
         display_message_history(messages, msg_count, main, offset);
         refresh_windows(4, main, in, border_main, border_in);
@@ -174,9 +165,11 @@ void *run_ncurses_window(void *_){
 
     close_UI:
         /* Clean row history */
-        for(int i = 0; i < msg_count; i++)
+        for(int i = 0; i < msg_count; i++){
             free_msg_rows(&messages[i]);
-        
+            free_msg_username_colors(&messages[i]);
+        }
+
         endwin();
         
         delwin(main);
@@ -196,7 +189,7 @@ int handle_offset(int old_offset, int increment, int times, int row_count){
         new_offset += increment;
         times--;
 
-        if(new_offset > row_count - max_text_win)
+        if(new_offset > row_count - max_text_win + 1)
             return new_offset-increment;
 
         if (new_offset < 0)
@@ -210,17 +203,12 @@ int parse_message_to_rows(Msg *message){
     int row_idx = 0;
     int char_size = 0, char_bytes = 0, cur_row_len = 0;
 
-    char row_buff[MAX_ROW_SIZE], raw_message[MAX_ROW_SIZE];
+    char row_buff[MAX_ROW_SIZE];
     char *char_ptr, wide_char[MAX_BYTES_IN_CHAR], *sub_row_ptr;
 
-    /* Concat the user details and message */
-    snprintf(
-        raw_message, MAX_ROW_SIZE,
-        ROW_FORMAT,
-        message->username, message->id, message->msg
-    );
+    cur_row_len = ROW_FORMAT_LEN + strlen(message->username) + strlen(message->id);
 
-    char_ptr = raw_message;
+    char_ptr = message->msg;
     sub_row_ptr = row_buff;
 
     while(true){
@@ -238,7 +226,7 @@ int parse_message_to_rows(Msg *message){
         if(cur_row_len >= main_maxx){ //row is full
             (cur_row_len > main_maxx) ? char_bytes -= char_size : 0;
 
-            insert_to_msg_rows(&message->rows, row_idx++, row_buff, char_bytes);
+            insert_into_msg_rows(&message->rows, row_idx++, row_buff, char_bytes);
 
             sub_row_ptr = row_buff;
             char_bytes = 0;
@@ -248,7 +236,7 @@ int parse_message_to_rows(Msg *message){
     }
 
     if(char_bytes > 0){ //save last row    
-        insert_to_msg_rows(&message->rows, row_idx++, row_buff, char_bytes);
+        insert_into_msg_rows(&message->rows, row_idx++, row_buff, char_bytes);
     }
 
     message->row_count = row_idx;
@@ -263,6 +251,14 @@ void free_msg_rows(Msg *msg){
     free(msg->rows);
 
     msg->rows = NULL;
+
+    return;
+}
+
+void free_msg_username_colors(Msg *msg){
+
+    free(msg->username_colors); 
+    msg->username_colors = NULL;
 
     return;
 }
@@ -353,6 +349,25 @@ void refresh_windows(int count, ...){
     return;
 }
 
+int init_colors(void){
+
+    if(has_colors() && can_change_color()){
+        start_color();
+
+        init_pair(1, COLOR_WHITE, COLOR_BLACK);
+        init_pair(2, COLOR_YELLOW, COLOR_BLACK);
+        init_pair(3, COLOR_MAGENTA, COLOR_BLACK);
+        init_pair(4, COLOR_GREEN, COLOR_BLACK);
+        init_pair(5, COLOR_BLUE, COLOR_BLACK);
+        init_pair(6, COLOR_CYAN, COLOR_BLACK);
+        init_pair(7, COLOR_RED, COLOR_BLACK);
+
+        return 0;        
+    }
+
+    return 1;
+}
+
 void init_windows(
     WINDOW **main, WINDOW **in, WINDOW **border_main, WINDOW **border_in){
     
@@ -409,17 +424,10 @@ void init_windows(
     nodelay(*in, TRUE); //input does not block output
     keypad(*in, TRUE); //ncurses interpret keys
 
-    if(has_colors() && can_change_color()){
-        //init_pair(1, COLOR_RED, COLOR_BLACK);
-        wattrset(*main, COLOR_PAIR(1));
-        //wbkgd(*border_main,COLOR_PAIR(2));
-        //wcolor_set(*border_main, COLOR_PAIR(1), NULL);
-    }
-
     return;
 }
 
-void insert_to_msg_rows(char ***rows, int count, char *row, int len){
+void insert_into_msg_rows(char ***rows, int count, char *row, int len){
 
     if((*rows = (char **)realloc(*rows, (count+1) * sizeof(char *))) == NULL){
         HANDLE_ERROR("Couldn't allocate memory for msg rows", 1);
@@ -440,6 +448,7 @@ int insert_into_message_history(Msg *messages, int *count, Msg msg){
         /* free oldest message */
         old_row_count = messages[0].row_count;
         free_msg_rows(&messages[0]);
+        free_msg_username_colors(&messages[0]);
 
         for(msg_idx = 0; msg_idx < (*count)-1; msg_idx++){
             messages[msg_idx] = messages[msg_idx+1];
@@ -447,12 +456,14 @@ int insert_into_message_history(Msg *messages, int *count, Msg msg){
 
         messages[msg_idx] = msg;
         rows_in_msg = parse_message_to_rows(&messages[msg_idx]);
+        parse_username_for_msg(&messages[msg_idx], msg.username);
 
         return rows_in_msg - old_row_count;
     }
 
     messages[*count] = msg;
     rows_in_msg = parse_message_to_rows(&messages[*count]);
+    parse_username_for_msg(&messages[*count], msg.username);
     (*count)++;
 
     return rows_in_msg;
@@ -498,6 +509,30 @@ int get_char_from_string(char *string, char *c){
     return size;
 }
 
+void print_colored_str_to_window(WINDOW *win, CChar *char_colors, char *str){
+    int i = 0;
+    char *substr;
+
+    if(!colors_supported){
+        while(*str != '\0'){
+            substr = strndup(str, char_colors[i].bytes);
+
+            COLOR(
+                wprintw(win, "%s", substr);
+                , win, char_colors[i].color
+            )
+
+            str += char_colors[i].bytes;
+            i++;
+            free(substr);
+        }
+    }else{
+        wprintw(win, "%s", str);
+    }
+
+    return;
+}
+
 void display_message_history(Msg *messages, int msg_count, WINDOW *win, int offset){
     int cur_idx = 0;
 
@@ -511,8 +546,21 @@ void display_message_history(Msg *messages, int msg_count, WINDOW *win, int offs
 
             wmove(win, cur_idx, 0); //Moving the cursor for the clear
             wclrtoeol(win);
-            mvwprintw(win, cur_idx, 0, "%s", messages[msg_idx].rows[row_idx]);
-            
+
+            if(!row_idx){ // first row, print meta
+                print_colored_str_to_window(
+                    win, messages[msg_idx].username_colors,
+                    messages[msg_idx].username
+                );
+                wprintw(
+                    win, ROW_FORMAT,
+                    messages[msg_idx].id, messages[msg_idx].rows[row_idx]
+                );
+                
+            }else{
+                wprintw(win, "%s", messages[msg_idx].rows[row_idx]);
+            }
+
             cur_idx++;
 
             if(cur_idx == max_text_win-1)
@@ -547,7 +595,7 @@ int handle_command(char *raw_command){
     }
     
     add_message_to_queue(
-        compose_message(response, "0", "System"),
+        compose_message(response, "0", "/7:System"),
         &read_head, &read_tail, &r_lock
     );
 
