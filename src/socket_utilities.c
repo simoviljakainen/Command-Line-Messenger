@@ -19,6 +19,7 @@ void bin_IP_to_str(in_addr_t ip, char *buffer){
     }
 }
 
+
 char *message_to_ascii_packet(Msg *message, int *size){
     char *packet;
 

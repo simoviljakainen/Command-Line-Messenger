@@ -207,7 +207,7 @@ int accept_connection(int server_socket){
         compose_message(
             "------- New connection accepted -------",
             "0",
-            "Server"
+            "/7:Server"
         ), &read_head, &read_tail, NULL);
     
     pthread_cond_signal(&message_ready);
@@ -265,7 +265,7 @@ void handle_disconnect(int index){
     pthread_mutex_lock(&r_lock);
 
     add_message_to_queue(
-        compose_message(buffer, "0", "Server"),
+        compose_message(buffer, "0", "/7:Server"),
         &read_head, &read_tail, NULL
     );
     pthread_cond_signal(&message_ready);

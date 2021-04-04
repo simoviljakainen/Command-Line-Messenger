@@ -2,8 +2,10 @@
     #define SETTING_H
 
     #include <inc/general.h>
-
-    #define MAX_USERNAME_LEN 10
+    
+    #define MAX_SUPPORTED_COLORS 7
+    #define MAX_COLOR_LEN 3
+    #define MAX_USERNAME_LEN 20
     #define MAX_PASSWORD_LEN 20
     #define MAX_MSG_LEN 256
     #define ID_SIZE 5
@@ -12,7 +14,7 @@
     #define MAX_BUFFER 256
     #define MAX_BYTES_IN_CHAR 4
     #define MAX_MSG_SIZE MAX_USERNAME_LEN + ID_SIZE + MAX_MSG_LEN + 1
-    #define ROW_FORMAT "%s(%s): %s"
+    #define ROW_FORMAT "(%s): %s"
     #define ROW_FORMAT_LEN 4
     #define MAX_ROW_SIZE MAX_MSG_SIZE + ROW_FORMAT_LEN
 
