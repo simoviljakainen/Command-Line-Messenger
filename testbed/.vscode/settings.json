@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "gcrypt.h": "c",
+        "sodium.h": "c"
+    }
+}
