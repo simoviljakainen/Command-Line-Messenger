@@ -17,8 +17,9 @@ void bin_IP_to_str(in_addr_t ip, char *buffer){
     if(inet_ntop(AF_INET, &ip, buffer, MAX_IPV4_STR) == NULL){
         HANDLE_ERROR("Failed to convert the in_addr_t -> char *IP", 1);
     }
+    
+    return;
 }
-
 
 char *message_to_ascii_packet(Msg *message, int *size){
     char *packet;

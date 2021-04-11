@@ -203,7 +203,7 @@ int parse_message_to_rows(Msg *message){
     int row_idx = 0;
     int char_size = 0, char_bytes = 0, cur_row_len = 0;
 
-    char row_buff[MAX_ROW_SIZE];
+    char row_buff[MAX_ROW_SIZE + 1];
     char *char_ptr, wide_char[MAX_BYTES_IN_CHAR], *sub_row_ptr;
 
     cur_row_len = ROW_FORMAT_LEN + strlen(message->username) + strlen(message->id);
@@ -544,7 +544,7 @@ void display_message_history(Msg *messages, int msg_count, WINDOW *win, int offs
                 continue;
             }
 
-            wmove(win, cur_idx, 0); //Moving the cursor for the clear
+            wmove(win, cur_idx, 0);
             wclrtoeol(win);
 
             if(!row_idx){ // first row, print meta

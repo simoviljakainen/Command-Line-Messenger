@@ -3,13 +3,18 @@
 #include <inc/socket_utilities.h>
 #include <inc/window_manager.h>
 #include <inc/message.h>
+#include <inc/crypt.h>
 
 void *write_to_server(void *p_socket);
 void *read_from_server(void *p_socket);
 
+gcry_cipher_hd_t aes256_gcm_handle;
+
 void start_client(void){
 
 /*******************   SETTING UP THE CONNECTTION   *******************/
+    
+    init_libgcrypt();
 
     /* Set IP and port */
     in_addr_t addr = str_to_bin_IP(connection.ipv4);
@@ -67,6 +72,8 @@ void start_client(void){
 
 /**********************   CONNECTION ACCEPTED   ***********************/
 
+	init_AES_256_cipher(&aes256_gcm_handle);
+
     /* Init the message queues */
     init_list(&read_head, &read_tail);
     init_list(&write_head, &write_tail);
@@ -111,14 +118,14 @@ void start_client(void){
 
 /* Sends messages to server */
 void *write_to_server(void *p_socket){
-    int socket = *((int *)p_socket);
+    int socket = *((int *)p_socket), msg_count = 0;
     free(p_socket);
 
     pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
 
     Msg *outgoing_msg;
-    char *ascii_packet;
-    int packet_size;
+    char *ascii_packet, *enc_packet;
+    int packet_size, new_size;
 
     while(true){
 
@@ -134,9 +141,15 @@ void *write_to_server(void *p_socket){
         pthread_mutex_unlock(&w_lock);
 
         ascii_packet = message_to_ascii_packet(outgoing_msg, &packet_size);
-        send(socket, ascii_packet, packet_size, 0);
+        enc_packet = encrypt_packet(
+                ascii_packet,
+                packet_size, &new_size,
+                &aes256_gcm_handle, ++msg_count
+        );
+        send(socket, enc_packet, new_size, 0);
 
         free(ascii_packet);
+        free(enc_packet);
         free(outgoing_msg);
     }
   
@@ -145,7 +158,7 @@ void *write_to_server(void *p_socket){
 
 /* Reads messages coming from the server and puts them into queue */
 void *read_from_server(void *p_socket){
-    int socket = *((int *)p_socket);
+    int socket = *((int *)p_socket), msg_count = 0;
     free(p_socket);
 
     pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
@@ -159,8 +172,7 @@ void *read_from_server(void *p_socket){
     ssize_t received_bytes;
     Msg msg;
 
-    int max_size = MAX_MSG_LEN + MAX_USERNAME_LEN + ID_SIZE;
-    char data_buffer[max_size];
+    char data_buffer[PACKET_MAX_BYTES], *packet;
 
     while(true){
         ready_socks = connected_socks;
@@ -170,23 +182,34 @@ void *read_from_server(void *p_socket){
         }
 
         if(FD_ISSET(socket, &ready_socks)){
-            received_bytes = recv(socket, data_buffer, max_size, 0);
+            received_bytes = recv(socket, data_buffer, PACKET_MAX_BYTES, 0);
 
             if(received_bytes <= 0){
 
                 add_message_to_queue(
                     compose_message(
-                        "------- Server closed the connection -------",
+                        "Server closed the connection",
                         "0",
-                        "System"
+                        "/7:System"
                     ), &read_head, &read_tail, &r_lock);
 
                 return NULL;
             }
             
-            msg = ascii_packet_to_message(data_buffer);
-            add_message_to_queue(msg, &read_head, &read_tail, &r_lock);
+            if(received_bytes < MIN_PACKET_SIZE)
+                continue; //rejected, malformed size
 
+            packet = decrypt_packet(
+                data_buffer, &aes256_gcm_handle, msg_count++
+            );
+
+            if(packet == NULL){
+                continue;
+            }
+
+            msg = ascii_packet_to_message(packet);
+            add_message_to_queue(msg, &read_head, &read_tail, &r_lock);
+            free(packet);
         }
     }
 
