@@ -2,6 +2,7 @@
 #include <inc/general.h>
 #include <inc/socket_utilities.h>
 #include <inc/message.h>
+#include <inc/crypt.h>
 
 void *handle_connections(void *p_socket);
 void handle_sigpipe(int _);
@@ -21,6 +22,8 @@ pthread_mutex_t client_lock = PTHREAD_MUTEX_INITIALIZER;
 void start_server(void){
 
 /*******************   SETTING UP THE CONNECTTION   *******************/
+
+    init_libgcrypt();
 
     /* Set IP and port */
     in_addr_t addr = str_to_bin_IP(connection.ipv4);
@@ -123,7 +126,7 @@ void start_server(void){
     return;
 }
 
-/* One thread handles connections (main) - 
+/* One thread handles connections - 
 The thread will start a new thread for every client*/
 void *handle_connections(void *p_socket){
     int server_socket = *((int *)p_socket);
@@ -205,9 +208,9 @@ int accept_connection(int server_socket){
 
     add_message_to_queue(
         compose_message(
-            "------- New connection accepted -------",
+            "New connection accepted",
             "0",
-            "Server"
+            "/7:Server"
         ), &read_head, &read_tail, NULL);
     
     pthread_cond_signal(&message_ready);
@@ -222,6 +225,8 @@ int accept_connection(int server_socket){
     }
 
     *sock_fd = new_client.socket;
+    init_AES_256_cipher(&new_client.aes_gcm_handle);
+    new_client.ctr = 0;
 
     /* Start message listening thread for the new client */
     pthread_create(
@@ -241,7 +246,7 @@ void handle_disconnect(int index){
 
     snprintf(
         buffer, MAX_BUFFER,
-        "------- Client(%d) has left the chat  -------",
+        "Client(%d) has left the chat.",
         clients[index].socket
     );
 
@@ -250,6 +255,7 @@ void handle_disconnect(int index){
         pthread_cancel(clients[index].read_thread); 
 
     close(clients[index].socket);
+    clean_cipher(&clients[index].aes_gcm_handle);
 
     /* Remove the client from the clients arr */
     pthread_mutex_lock(&client_lock);
@@ -265,7 +271,7 @@ void handle_disconnect(int index){
     pthread_mutex_lock(&r_lock);
 
     add_message_to_queue(
-        compose_message(buffer, "0", "Server"),
+        compose_message(buffer, "0", "/7:Server"),
         &read_head, &read_tail, NULL
     );
     pthread_cond_signal(&message_ready);
@@ -299,8 +305,9 @@ void *message_listener(void *p_socket){
     ssize_t received_bytes;
     Msg msg;
 
-    int max_size = MAX_MSG_LEN + MAX_USERNAME_LEN + ID_SIZE;
-    char data_buffer[max_size];
+    char data_buffer[PACKET_MAX_BYTES], *packet;
+
+    index = find_client_index(socket);
 
     while(true){
         ready_socks = connected_socks;
@@ -311,18 +318,32 @@ void *message_listener(void *p_socket){
         }
 
         if(FD_ISSET(socket, &ready_socks)){
-            received_bytes = recv(socket, data_buffer, max_size, 0);
+            received_bytes = recv(socket, data_buffer, PACKET_MAX_BYTES, 0);
 
             /* There was a connection error or it was orderly closed */
             if(received_bytes <= 0){
-                if((index = find_client_index(socket)) != -1)
+                if(index != -1)
                     handle_disconnect(index);
 
                 return NULL;
             }
 
-            msg = ascii_packet_to_message(data_buffer);
+            if(received_bytes < MIN_PACKET_SIZE)
+                continue; //rejected, malformed size
+
+            packet = decrypt_packet(
+                data_buffer,
+                &clients[index].aes_gcm_handle, clients[index].ctr++
+            );
+
+            if(packet == NULL){
+                printf("Malformed message from %d idx: %d\n", socket, index);
+                continue;
+            }
+
+            msg = ascii_packet_to_message(packet);
             snprintf(msg.id, ID_SIZE, "%d", socket);
+            free(packet);
 
             pthread_mutex_lock(&r_lock);
 
@@ -340,8 +361,8 @@ void *message_listener(void *p_socket){
 /* Broadcasts every client message to every client connected */
 void *broadcast_message(void *_){
     Msg *outgoing_msg;
-    int size;
-    char *ascii_packet;
+    int size, new_size, msg_count = 0;
+    char *ascii_packet, *enc_packet;
 
     pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
 
@@ -359,11 +380,19 @@ void *broadcast_message(void *_){
         pthread_mutex_unlock(&r_lock);
 
         ascii_packet = message_to_ascii_packet(outgoing_msg, &size);
-        
+                
         for(int i = 0; i < client_index; i++){
-            if(send(clients[i].socket, ascii_packet, size, MSG_NOSIGNAL) == -1){
+            enc_packet = encrypt_packet(
+                ascii_packet,
+                size, &new_size,
+                &clients[i].aes_gcm_handle, ++msg_count
+            );
+
+            if(send(clients[i].socket, enc_packet, new_size, MSG_NOSIGNAL) == -1){
                 handle_disconnect(i);
             }
+
+            free(enc_packet);
         }
 
         free(outgoing_msg);

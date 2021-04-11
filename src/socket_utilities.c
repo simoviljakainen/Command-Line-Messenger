@@ -17,6 +17,8 @@ void bin_IP_to_str(in_addr_t ip, char *buffer){
     if(inet_ntop(AF_INET, &ip, buffer, MAX_IPV4_STR) == NULL){
         HANDLE_ERROR("Failed to convert the in_addr_t -> char *IP", 1);
     }
+    
+    return;
 }
 
 char *message_to_ascii_packet(Msg *message, int *size){
@@ -65,7 +67,7 @@ int read_one_packet(int socket, char *buffer, size_t buffer_size){
     FD_ZERO(&ready_sockets);
     FD_SET(socket, &ready_sockets);
 
-    /* 3 sec timeout */
+    /* TODO 3 sec timeout */
     if(select(socket+1, &ready_sockets, NULL, NULL, &(struct timeval){.tv_sec = 3}) < 0){
         HANDLE_ERROR("There was problem with read select", 1);
     }

@@ -35,9 +35,11 @@ void handle_error(char *msg, int show_err, char *file, int line){
 		(show_err) ? strerror(errno): "-"
 	);
 	exit(EXIT_FAILURE);
+
+	return;
 }
 
-/* The seed is set in main */
+/*TODO change to openssl - The seed is set in main */
 uint8_t *pseudo_random_bytes(int bytes){
 	uint8_t *rand_bytes;
 

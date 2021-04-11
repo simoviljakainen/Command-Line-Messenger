@@ -10,7 +10,7 @@ pthread_mutex_t w_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t message_ready = PTHREAD_COND_INITIALIZER;
 
 Msg compose_message(char *msg, char *id, char *username){
-    Msg new_message = {.id="ERROR", .next = NULL};
+    Msg new_message = {.id="00", .rows = NULL, .next = NULL};
 
     if(msg != NULL)
         snprintf(new_message.msg, MAX_MSG_LEN, "%s", msg);
@@ -81,6 +81,73 @@ void add_message_to_queue(
 /* Not thread safe, should be only used before staring the threads */
 void init_list(Msg **head, Msg **tail){
     *head = NULL, *tail = NULL;
+
+    return;
+}
+
+CChar *add_username_color(CChar *colors, int color_count, int color, int bytes){
+
+    colors = (CChar *)realloc(colors, sizeof(CChar) * (color_count + 1));
+    colors[color_count].bytes = bytes;
+    colors[color_count].color = color;
+
+    return colors;
+}
+
+void parse_username_for_msg(Msg *dest, char *src){
+    char username[MAX_USERNAME_LEN], *name_ptr = username, *wchar = src;
+    char color_buff[MAX_COLOR_LEN + 1], *color_ptr = color_buff;
+    int bytes = 0, color_count = 0, color_num = 1;
+
+    bool capture_chars = true;
+
+    while(*wchar != '\0'){
+        if(*wchar == '/'){
+            capture_chars = false;
+
+            if(bytes > 0){
+                dest->username_colors = add_username_color(
+                    dest->username_colors, color_count++, color_num, bytes
+                );
+                bytes = 0;
+                color_num = 1;
+            }
+        }else if(*wchar == ':'){
+            capture_chars = true;
+
+            if(color_ptr > color_buff){
+                *color_ptr = '\0';
+                color_num = atoi(color_buff);
+
+                if(color_num == 0 || color_num > MAX_SUPPORTED_COLORS)
+                    color_num = 1;
+                
+                color_ptr = color_buff;
+            }
+        }else{
+            if(capture_chars){
+                *name_ptr = *wchar;
+                name_ptr++;
+                bytes++;
+
+            }else{
+                *color_ptr = *wchar;
+                color_ptr++;
+            }
+        }
+
+        wchar++;
+    }
+
+    if(bytes > 0)
+        dest->username_colors = add_username_color(
+            dest->username_colors, color_count++, color_num, bytes
+        );
+    
+    dest->color_count = color_count;
+
+    *name_ptr = '\0';
+    snprintf(dest->username, MAX_USERNAME_LEN, "%s", username);
 
     return;
 }

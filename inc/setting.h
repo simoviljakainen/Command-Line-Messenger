@@ -2,8 +2,10 @@
     #define SETTING_H
 
     #include <inc/general.h>
-
-    #define MAX_USERNAME_LEN 10
+    
+    #define MAX_SUPPORTED_COLORS 7
+    #define MAX_COLOR_LEN 3
+    #define MAX_USERNAME_LEN 20
     #define MAX_PASSWORD_LEN 20
     #define MAX_MSG_LEN 256
     #define ID_SIZE 5
@@ -11,10 +13,18 @@
     #define DEFAULT_PASSWORD "KimmoHeikkiPena"
     #define MAX_BUFFER 256
     #define MAX_BYTES_IN_CHAR 4
-    #define MAX_MSG_SIZE MAX_USERNAME_LEN + ID_SIZE + MAX_MSG_LEN + 1
-    #define ROW_FORMAT "%s(%s): %s"
+    #define MAX_MSG_SIZE MAX_USERNAME_LEN + ID_SIZE + MAX_MSG_LEN
+    #define ROW_FORMAT "(%s): %s"
     #define ROW_FORMAT_LEN 4
     #define MAX_ROW_SIZE MAX_MSG_SIZE + ROW_FORMAT_LEN
+
+    #define CTR_BYTES 2
+    #define SIZE_BYTES 2
+    #define AAD_BYTES CTR_BYTES + SIZE_BYTES
+    #define HEADER_BYTES AAD_BYTES + IV_BYTES + TAG_BYTES
+    #define PACKET_MAX_BYTES HEADER_BYTES + MAX_MSG_SIZE
+    #define MIN_MSG_LEN 2
+    #define MIN_PACKET_SIZE HEADER_BYTES + MAX_USERNAME_LEN + ID_SIZE + MIN_MSG_LEN
 
     #define MAX_PORT_STR 6
     #define MAX_IPV4_STR 16
@@ -22,6 +32,13 @@
     #define DEFAULT_PORT "1337"
     #define RESPONSE_OK "100"
     #define RESPONSE_FAIL "401"
+
+    /* Libgcrypt*/
+    #define MIN_LIBGCRYPT_VERSION "1.9.2"
+    #define BYTES_IN_256 32
+    #define IV_BYTES 12
+    #define TAG_BYTES 16
+    #define SEC_MEM_KIB 16384
 
     /* Argon2id */
     #define SALT_LEN 16
@@ -66,7 +83,7 @@
 
     /* Argon2id */
     const uint32_t time_cost = 6;
-	const uint32_t mem_cost = 1024; //Kibibytes
+	const uint32_t mem_cost = 15 * 1024; //OWASP recommends 15 MiBs min
 	const uint32_t threads = 1;
 
     Connection connection = {
