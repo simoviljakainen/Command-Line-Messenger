@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -pedantic -I. -g -lpthread -lncursesw -lm --coverage
+CFLAGS = -Wall -pedantic -I. -g -lpthread -lncursesw -lm -lgcrypt --coverage
 LIBS = ./lib/libargon2.a
 TARGET = clm
 OFOLD = obj
@@ -26,4 +26,4 @@ cm:
 	make clean&&make
 
 run:
-	make cm&&valgrind --leak-check=full --track-origins=yes --show-leak-kinds=all --verbose ./$(TARGET) 1337
+	make cm&&valgrind --leak-check=full --track-origins=yes --show-leak-kinds=all --log-file="valgrind.txt" --verbose ./$(TARGET) -p1337 -h

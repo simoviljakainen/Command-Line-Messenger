@@ -12,7 +12,6 @@
     #include <netinet/in.h> //Structures for address information
 
     #include <inc/message.h>
-    #include <inc/crypt.h>
 
     in_addr_t str_to_bin_IP(char *string);
     void bin_IP_to_str(in_addr_t ip, char *buffer);
@@ -24,10 +23,8 @@
 
     typedef struct _client{
         int socket;
-        uint16_t ctr;
         struct sockaddr_in addr;
         pthread_t read_thread;
-        gcry_cipher_hd_t aes_gcm_handle;
     }Client;
 
 #endif
